@@ -78,6 +78,10 @@ class WebSocketClient {
     const modeChanged = this.authRequired !== opts.auth;
     this.authRequired = opts.auth;
     this.leaving = false;
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (
       this.socket &&
       (this.socket.readyState === WebSocket.OPEN ||
@@ -157,6 +161,10 @@ class WebSocketClient {
 
   private open() {
     if (this.leaving) return;
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     const generation = ++this.generation;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     let socket: WebSocket;
@@ -225,6 +233,7 @@ class WebSocketClient {
 
     socket.onclose = () => {
       if (generation !== this.generation) return;
+      this.socket = null;
       this.ready = false;
       this.identity = null;
       this.emitStatus(false);
