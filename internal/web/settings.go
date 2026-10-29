@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,5 +125,15 @@ func (st *SettingsStore) Update(next Settings) error {
 func decodeStrict(raw []byte, v any) error {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
-	return dec.Decode(v)
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	// Reject trailing data — otherwise "strict" can be bypassed.
+	if dec.More() {
+		return errors.New("unexpected trailing data after JSON value")
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return errors.New("unexpected trailing data after JSON value")
+	}
+	return nil
 }

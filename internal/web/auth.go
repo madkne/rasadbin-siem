@@ -99,6 +99,11 @@ func hashToken(t string) [32]byte { return sha256.Sum256([]byte(t)) }
 
 // Login verifies credentials and returns a new session token.
 func (a *Auth) Login(username, password, ip string) (string, Session, error) {
+	// Bound inputs before PBKDF2 to prevent CPU-DoS via huge passwords.
+	if len(username) > 128 || len(password) > maxPasswordLen || len(password) < 1 {
+		a.recordFailure(ip)
+		return "", Session{}, ErrInvalidCredentials
+	}
 	if a.locked(ip) {
 		return "", Session{}, ErrTooManyAttempts
 	}
@@ -151,6 +156,9 @@ func (a *Auth) Validate(token string) (*Session, bool) {
 
 // Logout revokes a session token.
 func (a *Auth) Logout(token string) {
+	if token == "" {
+		return
+	}
 	a.mu.Lock()
 	delete(a.sessions, hashToken(token))
 	a.mu.Unlock()
@@ -159,6 +167,7 @@ func (a *Auth) Logout(token string) {
 // ChangePassword verifies the current password, sets the new one and
 // revokes every session of that user.
 func (a *Auth) ChangePassword(username, current, next string) error {
+
 	key := "pw:" + username
 	if a.locked(key) {
 		return ErrTooManyAttempts

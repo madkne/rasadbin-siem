@@ -64,8 +64,9 @@ type Hub struct {
 	clients map[*client]struct{}
 	recent  []Event
 
-	store   EventStore // nil = memory-only (tests, no DB)
-	storeCh chan Event
+	store      EventStore // nil = memory-only (tests, no DB)
+	storeCh    chan Event
+	writerDone chan struct{} // closes when storeWriter returns
 	dropped atomic.Uint64
 
 	started     time.Time
@@ -92,11 +93,12 @@ func NewHub(version, commit string) *Hub {
 // call are queued for storage by the storeWriter goroutine started in Run.
 func (h *Hub) SetStore(store EventStore) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.store = store
 	if store != nil && h.storeCh == nil {
 		h.storeCh = make(chan Event, 1024)
+		h.writerDone = make(chan struct{})
 	}
-	h.mu.Unlock()
 }
 func (h *Hub) add(c *client) {
 	h.mu.Lock()
@@ -154,20 +156,31 @@ func (h *Hub) Publish(e Event) {
 		}
 	}
 }
+
+// drainStore waits for the writer goroutine to consume queued events.
 func (h *Hub) drainStore(timeout time.Duration) {
 	h.mu.RLock()
-	ch := h.storeCh
+	ch, done := h.storeCh, h.writerDone
 	h.mu.RUnlock()
-	if ch == nil {
+	if ch == nil || done == nil {
 		return
 	}
 	deadline := time.After(timeout)
 	for {
 		if len(ch) == 0 {
-			return
+			// Give the writer a moment to persist the last one.
+			select {
+			case <-done:
+				return
+			case <-time.After(50 * time.Millisecond):
+				return
+			case <-deadline:
+				return
+			}
 		}
 		select {
 		case <-deadline:
+			slog.Warn("drainStore timed out", "remaining", len(ch))
 			return
 		case <-time.After(10 * time.Millisecond):
 		}
@@ -230,14 +243,16 @@ func (h *Hub) Run(ctx context.Context, refresh func() time.Duration, auth *Auth)
 	}
 }
 func (h *Hub) storeWriter(ctx context.Context) {
+	defer close(h.writerDone)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case e := <-h.storeCh:
-			wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			wctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			if err := h.store.Append(wctx, e); err != nil {
 				slog.Error("persist event failed", "error", err)
+				h.dropped.Add(1)
 			}
 			cancel()
 		}
