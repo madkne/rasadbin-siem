@@ -14,18 +14,18 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [x] TCP and UDP flow metadata extraction.
 - [ ] Offline PCAP processing for testing and investigation.
 - [ ] System log collection through `systemd-journald`.
-- [ ] File-based log collection with rotation handling.
-- [ ] Linux authentication and privilege-escalation event monitoring.
+- [x] File-based syslog collection with rotation and truncation handling.
+- [x] Linux authentication and privilege-escalation event parsing (syslog heuristic severity).
 - [ ] Service-specific log parsers for Nginx, SSH, Docker, and other applications.
 - [ ] Configurable collection sources and filters.
 
 ### Event Processing
 
-- [ ] Common event schema for all collection sources.
-- [ ] Event normalization and validation.
+- [x] Common event schema for all collection sources (`web.Event`).
+- [x] Event normalization and validation.
 - [ ] Host, process, user, and network context enrichment.
 - [ ] Duplicate event detection.
-- [ ] Bounded ingestion queues and backpressure handling.
+- [x] Bounded ingestion queues (hub recent buffer, store channel with drop counter).
 - [ ] Persistent checkpoints for reliable log collection.
 - [ ] Event correlation across multiple data sources.
 
@@ -45,7 +45,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 ### Web Interface and API
 
 - [x] Security overview dashboard with live stats and event feed (WebSocket).
-- [ ] Searchable event explorer.
+- [x] Searchable event explorer (Discover page with time range, severity, source filters, histogram and live updates).
 - [ ] Alert and incident management.
 - [ ] Network flow explorer.
 - [x] Collector health monitoring (integration status in the UI).
@@ -65,6 +65,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [ ] Metrics and performance monitoring.
 - [ ] Configurable event retention (setting persisted, not yet enforced).
 - [x] Graceful shutdown and resource cleanup.
+- [x] Persistent event storage via GORM (SQLite, PostgreSQL, MySQL).
 - [ ] Automated unit, integration, and load tests (partial: network decoding and integration store tests exist).
 
 ## Architecture

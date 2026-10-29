@@ -18,9 +18,15 @@ class WebSocketClient {
   private statusHandlers = new Set<StatusHandler>();
   private identity: Identity | null = null;
 
-  get token(): string | null { return sessionStorage.getItem(TOKEN_KEY); }
-  get isReady(): boolean { return this.ready; }
-  get isConnected(): boolean { return this.connected; }
+  get token(): string | null {
+    return sessionStorage.getItem(TOKEN_KEY);
+  }
+  get isReady(): boolean {
+    return this.ready;
+  }
+  get isConnected(): boolean {
+    return this.connected;
+  }
 
   setToken(token: string | null) {
     if (token) sessionStorage.setItem(TOKEN_KEY, token);
@@ -29,7 +35,10 @@ class WebSocketClient {
 
   on<T = unknown>(type: string, fn: Handler<T>): () => void {
     let set = this.handlers.get(type);
-    if (!set) { set = new Set(); this.handlers.set(type, set); }
+    if (!set) {
+      set = new Set();
+      this.handlers.set(type, set);
+    }
     set.add(fn as Handler);
     // Authentication can finish before protected components mount. Replay the
     // latest identity so those components don't miss the one-time ready event.
@@ -44,13 +53,21 @@ class WebSocketClient {
   }
 
   send(type: string, data?: unknown) {
-    if (this.ready && this.socket?.readyState === WebSocket.OPEN) this.raw(type, data);
-    else if (type === "login" || type === "auth" || type === "logout" ||
-             type === "subscribe" || type === "unsubscribe" ||
-             type.startsWith("settings.") || type.startsWith("password.")) {
+    if (this.ready && this.socket?.readyState === WebSocket.OPEN)
+      this.raw(type, data);
+    else if (
+      type === "login" ||
+      type === "auth" ||
+      type === "logout" ||
+      type === "subscribe" ||
+      type === "unsubscribe" ||
+      type.startsWith("settings.") ||
+      type.startsWith("password.")
+    ) {
       // Keep bounded, but don't queue credentials or commands across a new
       // socket/session. Authentication commands are sent only on an open socket.
-      if (type === "login" && this.socket?.readyState === WebSocket.OPEN) this.raw(type, data);
+      if (type === "login" && this.socket?.readyState === WebSocket.OPEN)
+        this.raw(type, data);
       else if (type !== "login" && type !== "auth" && type !== "logout") {
         if (this.outbox.length < 32) this.outbox.push([type, data]);
       }
@@ -61,17 +78,29 @@ class WebSocketClient {
     const modeChanged = this.authRequired !== opts.auth;
     this.authRequired = opts.auth;
     this.leaving = false;
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN ||
+        this.socket.readyState === WebSocket.CONNECTING)
+    ) {
       if (modeChanged) {
         this.ready = false;
         this.identity = null;
-        if (this.socket.readyState === WebSocket.OPEN && this.authRequired) this.authenticate();
-        else if (this.socket.readyState === WebSocket.OPEN && !this.authRequired) {
+        if (this.socket.readyState === WebSocket.OPEN && this.authRequired)
+          this.authenticate();
+        else if (
+          this.socket.readyState === WebSocket.OPEN &&
+          !this.authRequired
+        ) {
           this.ready = true;
           this.flush();
           this.emit("open", undefined);
         }
-      } else if (this.authRequired && this.socket.readyState === WebSocket.OPEN && !this.ready) {
+      } else if (
+        this.authRequired &&
+        this.socket.readyState === WebSocket.OPEN &&
+        !this.ready
+      ) {
         this.authenticate();
       }
       return;
@@ -89,10 +118,13 @@ class WebSocketClient {
   }
 
   private raw(type: string, data: unknown) {
-    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify({ type, data }));
+    if (this.socket?.readyState === WebSocket.OPEN)
+      this.socket.send(JSON.stringify({ type, data }));
   }
 
-  private emit(type: string, data: unknown) { this.handlers.get(type)?.forEach((fn) => fn(data)); }
+  private emit(type: string, data: unknown) {
+    this.handlers.get(type)?.forEach((fn) => fn(data));
+  }
   private emitStatus(up: boolean) {
     this.connected = up;
     this.statusHandlers.forEach((fn) => fn(up));
@@ -116,7 +148,10 @@ class WebSocketClient {
 
   private authenticate() {
     const token = this.token;
-    if (!token) { this.goLogin(); return; }
+    if (!token) {
+      this.goLogin();
+      return;
+    }
     this.raw("auth", { token });
   }
 
@@ -134,11 +169,15 @@ class WebSocketClient {
     this.socket = socket;
 
     socket.onopen = () => {
-      if (generation !== this.generation) { socket.close(); return; }
+      if (generation !== this.generation) {
+        socket.close();
+        return;
+      }
       this.retries = 0;
       this.emitStatus(true);
       if (this.authRequired) this.authenticate();
       else {
+        this.retries = 0;
         this.ready = true;
         this.flush();
         this.emit("open", undefined);
@@ -151,11 +190,14 @@ class WebSocketClient {
       try {
         if (typeof ev.data !== "string") return;
         message = JSON.parse(ev.data) as Envelope;
-      } catch { return; }
+      } catch {
+        return;
+      }
 
       switch (message.type) {
         case "auth_ok": {
           const me = message.data as Identity;
+          this.retries = 0;
           this.ready = true;
           this.applyIdentity(me);
           this.flush();
@@ -193,13 +235,20 @@ class WebSocketClient {
 
   private scheduleReconnect(generation: number) {
     if (this.leaving || this.reconnectTimer !== null) return;
+
     this.retries++;
-    const base = Math.min(15000, 500 * 2 ** Math.min(this.retries, 5));
-    const delay = base + Math.floor(Math.random() * 250);
+
+    const delay = Math.min(30_000, 1_000 * 2 ** Math.min(this.retries - 1, 5));
+
+    const jitter = Math.floor(Math.random() * 500);
+
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
-      if (!this.leaving && generation === this.generation) this.open();
-    }, delay);
+
+      if (!this.leaving && generation === this.generation) {
+        this.open();
+      }
+    }, delay + jitter);
   }
 
   private flush() {
