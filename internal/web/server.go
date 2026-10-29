@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"rasadbin/internal/collector/network"
+	"rasadbin/internal/collector/syslog"
 )
 
 // Config configures the web UI.
@@ -168,50 +169,6 @@ func (s *Server) page() http.HandlerFunc {
 	}
 }
 
-func secureHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h := w.Header()
-		h.Set("Content-Security-Policy",
-			"default-src 'self'; "+
-				"script-src 'self'; "+
-				"connect-src 'self' "+wsConnectSrc(r)+"; "+
-				"img-src 'self' data:; "+
-				"style-src 'self' 'unsafe-inline'; "+
-				"font-src 'self'; "+
-				"object-src 'none'; "+
-				"frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("X-Frame-Options", "DENY")
-		h.Set("Referrer-Policy", "no-referrer")
-		h.Set("Cross-Origin-Opener-Policy", "same-origin")
-		h.Set("Cross-Origin-Resource-Policy", "same-origin")
-		h.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-		next.ServeHTTP(w, r)
-	})
-}
-func wsConnectSrc(r *http.Request) string {
-	host := r.Host
-	if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
-		host = fwd
-	}
-	if host == "" {
-		return ""
-	}
-	return "ws://" + host + " wss://" + host
-}
-func parseLevel(s string) slog.Level {
-	switch s {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
-}
-
 // StartNetworkCapture starts the Linux packet collector when explicitly enabled.
 // The caller should invoke this once after constructing the server. Capture needs
 // CAP_NET_RAW/root and is intentionally not started implicitly by New().
@@ -246,4 +203,27 @@ func (s *Server) StartNetworkCapture(ctx context.Context, ifaces []string) error
 		slog.Info("network packet collector started", "interface", c.Interface())
 	}
 	return firstErr
+}
+
+// StartSyslogCollection tails syslog files when the integration is enabled.
+// TODO(advanced): start/stop on runtime toggle instead of requiring a restart.
+func (s *Server) StartSyslogCollection(ctx context.Context, paths []string) error {
+	item, ok := s.integrations.Get("syslog-files")
+	if !ok || !item.Enabled {
+		return nil
+	}
+	c, err := syslog.New(paths, func(e syslog.Entry) {
+		s.Publish(Event{Time: e.Time, Source: "syslog-files", Severity: e.Severity, Message: e.String()})
+	})
+	if err != nil {
+		s.Publish(Event{Source: "syslog-files", Severity: "high", Message: "syslog collector failed to start: " + err.Error()})
+		return err
+	}
+	go func() {
+		if err := c.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("syslog collector stopped", "error", err)
+		}
+	}()
+	slog.Info("syslog collector started", "paths", c.Paths())
+	return nil
 }

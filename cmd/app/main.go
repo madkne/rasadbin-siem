@@ -123,6 +123,9 @@ func runCommand(args []string) error {
 	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterfaces); err != nil {
 		slog.Warn("network packet capture unavailable", "error", err)
 	}
+	if err := ui.StartSyslogCollection(ctx, cfg.SyslogPaths); err != nil {
+		slog.Warn("syslog file collection unavailable", "error", err)
+	}
 
 	mux := http.NewServeMux()
 

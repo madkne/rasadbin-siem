@@ -40,7 +40,10 @@ type Config struct {
 	CaptureInterfaces []string // empty = collector default
 	EnvFile           string   // path actually loaded, for logging
 	DB                DBConfig
+	SyslogPaths       []string
 }
+
+const defaultSyslogPaths = "/var/log/auth.log,/var/log/syslog,/var/log/messages,/var/log/secure"
 
 // Load resolves configuration from .env, the environment and args.
 // args is the argument slice passed to the `run` subcommand (without "run").
@@ -72,6 +75,9 @@ func Load(args []string) (Config, error) {
 		"database DSN; sqlite defaults to DATA_DIR/rasadbin.db (overrides DB_DSN)")
 	dbLogLevel := fs.String("db-log-level", envOr("DB_LOG_LEVEL", "warn"),
 		"gorm log level: silent|error|warn|info (overrides DB_LOG_LEVEL)")
+	syslogPaths := fs.String("syslog-paths", envOr("SYSLOG_PATHS", defaultSyslogPaths),
+		"comma-separated syslog files to tail (overrides SYSLOG_PATHS)")
+
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -102,6 +108,7 @@ func Load(args []string) (Config, error) {
 		CaptureInterfaces: splitInterfaces(*captureInterface),
 		EnvFile:           envFile,
 		DB:                db,
+		SyslogPaths:       splitList(*syslogPaths),
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
