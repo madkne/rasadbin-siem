@@ -4,14 +4,14 @@
 
 The project aims to provide a lightweight, extensible, and self-hosted security monitoring solution with a modular architecture and a clear path toward advanced threat detection.
 
-> **Project status:** Early development. Core infrastructure is under construction. Network capture, log collection, detection rules, persistent event storage, and the web interface are planned components and should not be considered production-ready until implemented and tested.
+> **Project status:** Early development. The web UI, authentication, settings persistence, integration registry, and Linux AF_PACKET network collector are implemented. Log collection, detection rules, persistent event storage, and alerting are planned components and should not be considered production-ready until implemented and tested.
 
 ## Features and Roadmap
 
 ### Data Collection
 
-- [ ] Live network packet capture on Linux network interfaces.
-- [ ] TCP and UDP flow metadata extraction.
+- [x] Live network packet capture on Linux network interfaces (AF_PACKET, metadata only).
+- [x] TCP and UDP flow metadata extraction.
 - [ ] Offline PCAP processing for testing and investigation.
 - [ ] System log collection through `systemd-journald`.
 - [ ] File-based log collection with rotation handling.
@@ -44,25 +44,27 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 
 ### Web Interface and API
 
-- [ ] Security overview dashboard.
+- [x] Security overview dashboard with live stats and event feed (WebSocket).
 - [ ] Searchable event explorer.
 - [ ] Alert and incident management.
 - [ ] Network flow explorer.
-- [ ] Collector health monitoring.
+- [x] Collector health monitoring (integration status in the UI).
 - [ ] Detection rule management.
-- [ ] REST API with versioned endpoints.
-- [ ] Server-Sent Events (SSE) for live updates.
-- [ ] Authentication, authorization, and administrative audit logging.
+- [ ] REST API with versioned endpoints (currently WebSocket-only).
+- [x] Live updates over WebSocket (not SSE).
+- [x] Authentication, authorization, and administrative audit logging (in-memory users).
+- [x] Admin settings page (instance name, log level, session timeout, retention, refresh interval).
+- [x] Built-in integration control plane with enable/disable and alerting toggles.
 
 ### Operations
 
 - [ ] Linux service integration using systemd.
 - [ ] Configuration validation and diagnostics.
-- [ ] Health and readiness endpoints.
+- [x] Health endpoint (`/healthz`).
 - [ ] Metrics and performance monitoring.
-- [ ] Configurable event retention.
-- [ ] Graceful shutdown and resource cleanup.
-- [ ] Automated unit, integration, and load tests.
+- [ ] Configurable event retention (setting persisted, not yet enforced).
+- [x] Graceful shutdown and resource cleanup.
+- [ ] Automated unit, integration, and load tests (partial: network decoding and integration store tests exist).
 
 ## Architecture
 
@@ -71,12 +73,12 @@ Rasadbin follows a modular monolithic architecture. Collection, processing, dete
 ```text
 +------------------------------------------------------+
 |                    Web Interface                     |
-|         Dashboard | Events | Alerts | Rules          |
+|    Dashboard | Integrations | Settings | Events      |
 +----------------------------+-------------------------+
                              |
 +----------------------------v-------------------------+
-|                    REST API / SSE                    |
-|          Authentication | Authorization              |
+|                WebSocket Hub / Auth                  |
+|     Sessions | Integrations | Settings | Events      |
 +----------------------------+-------------------------+
                              |
 +----------------------------v-------------------------+
@@ -98,53 +100,50 @@ Rasadbin follows a modular monolithic architecture. Collection, processing, dete
 
 +------------------+ +----------------+ +---------------+
 | Network Capture  | | System Logs    | | Service Logs  |
-| PCAP / TCP / UDP | | journald/Audit | | Files / Syslog|
+| AF_PACKET / TCP  | | journald/Audit | | Files / Syslog|
 +------------------+ +----------------+ +---------------+
 ```
 
 ### Core Components
 
-| Component             | Responsibility                                                    |
-| --------------------- | ----------------------------------------------------------------- |
-| Network Collector     | Captures packets and extracts network metadata.                   |
-| System Collector      | Reads operating system and authentication events.                 |
-| Service Log Collector | Reads and parses application and service logs.                    |
-| Event Pipeline        | Normalizes, enriches, and routes events.                          |
-| Detection Engine      | Evaluates rules and identifies suspicious behavior.               |
-| Alert Manager         | Creates, deduplicates, and tracks security alerts.                |
-| Storage Layer         | Persists events, configuration, rules, and investigation data.    |
-| REST API              | Exposes event search, management, and monitoring endpoints.       |
-| Web Interface         | Provides centralized security visibility and investigation tools. |
+| Component             | Responsibility                                                           |
+| --------------------- | ------------------------------------------------------------------------ |
+| Network Collector     | Captures packets via AF_PACKET and extracts L3/L4 metadata.              |
+| System Collector      | Reads operating system and authentication events (planned).              |
+| Service Log Collector | Reads and parses application and service logs (planned).                 |
+| Event Pipeline        | Normalizes, enriches, and routes events (seam in place).                 |
+| Detection Engine      | Evaluates rules and identifies suspicious behavior (planned).            |
+| Alert Manager         | Creates, deduplicates, and tracks security alerts (planned).             |
+| Storage Layer         | Persists events, configuration, rules, and investigation data (planned). |
+| WebSocket API         | Exposes live dashboard, integration control, and settings.               |
+| Web Interface         | Provides centralized security visibility and investigation tools.        |
 
 ## Technology Stack
 
-| Area               | Technology                                           |
-| ------------------ | ---------------------------------------------------- |
-| Backend            | Go                                                   |
-| HTTP API           | Go `net/http`, with `chi` as an optional router      |
-| Network Capture    | `gopacket`, libpcap, and potentially Linux AF_PACKET |
-| System Logs        | systemd journal APIs and Linux logging facilities    |
-| Initial Storage    | SQLite                                               |
-| Full-Text Search   | SQLite FTS5                                          |
-| Frontend           | React, TypeScript, and Vite                          |
-| Live Updates       | Server-Sent Events (SSE)                             |
-| Configuration      | YAML or environment-based configuration              |
-| Service Management | systemd                                              |
-| Testing            | Go testing, integration tests, and traffic replay    |
+| Area               | Technology                                                  |
+| ------------------ | ----------------------------------------------------------- |
+| Backend            | Go                                                          |
+| HTTP Server        | Go `net/http`                                               |
+| WebSocket          | `github.com/coder/websocket`                                |
+| Network Capture    | Linux AF_PACKET (raw sockets), no libpcap dependency        |
+| Initial Storage    | JSON files (`data/settings.json`, `data/integrations.json`) |
+| Frontend           | React, TypeScript, and Vite                                 |
+| Live Updates       | WebSocket (single `/ws` endpoint)                           |
+| Configuration      | Environment variables, `.env` file, and CLI flags           |
+| Service Management | systemd (planned)                                           |
+| Testing            | Go testing                                                  |
 
-The storage layer is intended to be replaceable. PostgreSQL or ClickHouse may be considered later if workload measurements show that the initial SQLite implementation is insufficient.
+The storage layer is intended to be replaceable. SQLite (with FTS5) is a candidate for event storage; PostgreSQL or ClickHouse may be considered later if workload measurements show that JSON-based persistence is insufficient.
 
 ## Requirements
 
 ### Development Environment
 
 - Linux development environment.
-- Go toolchain compatible with the version declared in `go.mod`.
+- Go toolchain compatible with the version declared in `go.mod` (Go 1.27.2).
 - Git.
-- A C compiler and CGO toolchain if using `github.com/mattn/go-sqlite3`.
 - Node.js and npm for frontend development.
-- `libpcap` development libraries for packet capture.
-- Root privileges or appropriate Linux capabilities for selected packet-capture operations.
+- Root privileges or `CAP_NET_RAW` for live packet capture.
 
 On Debian or Ubuntu:
 
@@ -154,11 +153,10 @@ sudo apt update
 sudo apt install -y \
   git \
   build-essential \
-  pkg-config \
-  libpcap-dev
+  pkg-config
 ```
 
-Install Go and Node.js separately if they are not already available.
+Install Go and Node.js separately if they are not already available. Note: libpcap is not required by the current code, which uses raw AF_PACKET sockets directly.
 
 ## Getting Started
 
@@ -173,24 +171,24 @@ Replace `<REPOSITORY_URL>` with the actual repository URL.
 
 ### 2. Install Go Dependencies
 
-The module is declared as `rasadbin` in `go.mod`. No additional dependencies are currently required by the implemented code; install dependencies only as new components are added:
+The module is declared as `rasadbin` in `go.mod`. The only external dependency is the WebSocket library:
 
 ```bash
 go mod tidy
 ```
 
-Planned dependencies (not yet used by the current code) include:
+### 3. Build the Web UI
+
+The Go server serves static assets from `webui/dist`. Build them first:
 
 ```bash
-go get github.com/go-chi/chi/v5
-go get github.com/mattn/go-sqlite3
-go get github.com/google/gopacket
-go get github.com/coreos/go-systemd/v22
+cd webui
+npm install
+npm run build
+cd ..
 ```
 
-Keep `go.mod` synchronized as the codebase evolves.
-
-### 3. Run the Application
+### 4. Run the Application
 
 The main package lives at `cmd/app`. From the repository root:
 
@@ -200,7 +198,7 @@ go run ./cmd/app version
 go run ./cmd/app run
 ```
 
-The CLI reports the product name `Rasadbin`, the command name `rasadbin`, the version constant from `cmd/app/version.go`, and the Git commit hash injected at build time (or `unknown` when built without `scripts/build.sh`).
+The CLI reports the product name `Rasadbin`, the command name `rasadbin`, the version constant from `cmd/app/version.go`, and the Git commit hash injected at build time (or `dev` when built without `scripts/build.sh`).
 
 By default, the HTTP server listens on:
 
@@ -216,7 +214,9 @@ A convenience script is available:
 
 This runs the server on `127.0.0.1:9090`.
 
-### 4. Verify the Health Endpoint
+On first run, if `ADMIN_PASSWORD` is not set, a random admin password is generated and printed to stderr. Set it via `.env` or the environment to choose your own (minimum 10 characters).
+
+### 5. Verify the Health Endpoint
 
 In another terminal:
 
@@ -224,19 +224,19 @@ In another terminal:
 curl -i http://127.0.0.1:8080/healthz
 ```
 
-The initial implementation returns an HTTP 200 response similar to:
+The implementation returns an HTTP 200 response similar to:
 
 ```json
 {
   "status": "ok",
   "service": "rasadbin",
-  "version": "0.1.0"
+  "version": "0.1.8"
 }
 ```
 
 This endpoint currently checks basic HTTP service availability. It does not yet guarantee that collectors, storage, or detection components are operational.
 
-### 5. Build the Binary
+### 6. Build the Binary
 
 The build script injects the current short Git commit hash into the binary via `-ldflags -X main.commit=...`. The application version is a compile-time constant in `cmd/app/version.go` and is not overridden by the build.
 
@@ -271,7 +271,7 @@ Run the compiled binary:
 `version` output has the form:
 
 ```text
-Rasadbin 0.1.0 (<commit>)
+Rasadbin 0.1.8 (<commit>)
 ```
 
 ## Development Commands
@@ -293,53 +293,53 @@ go vet ./...
 
 # Build the application (with commit hash injected)
 ./scripts/build.sh
+
+# Type-check and build the frontend
+cd webui && npm run typecheck && npm run build
 ```
 
 Use `golangci-lint` when configured for the repository.
 
 ## Configuration
 
-The configuration system is planned to support a YAML file, environment variables, and command-line overrides. The current implementation only supports the `--listen` flag for the `run` command.
+Rasadbin resolves configuration with the following precedence (highest wins):
 
-A future configuration file may look like this:
+1. Explicit CLI flags
+2. Real environment variables
+3. Values from the `.env` file (loaded into the environment)
+4. Built-in defaults
 
-```yaml
-server:
-  listen: "127.0.0.1:8080"
-  read_timeout: 15s
-  write_timeout: 30s
+### Bootstrap Configuration
 
-storage:
-  driver: sqlite
-  path: "./data/rasadbin.db"
+Loaded at startup from `.env`, the environment, and CLI flags. See `.env.example`.
 
-logging:
-  level: info
-  format: json
+| Variable            | Flag                  | Default             | Description                                 |
+| ------------------- | --------------------- | ------------------- | ------------------------------------------- |
+| `HTTP_HOST`         |                       | `127.0.0.1`         | HTTP bind host                              |
+| `HTTP_PORT`         |                       | `8080`              | HTTP bind port                              |
+| `DATA_DIR`          | `--data-dir`          | `./data`            | Directory for persisted settings            |
+| `WEBUI_DIR`         | `--webui-dir`         | `webui/dist`        | Path to built web UI assets                 |
+| `ADMIN_PASSWORD`    |                       | (generated)         | Initial admin password (min. 10 characters) |
+| `CAPTURE_INTERFACE` | `--capture-interface` | (collector default) | Linux interface for packet capture          |
+| `ENV_FILE`          |                       | `.env`              | Path to the environment file                |
 
-collectors:
-  network:
-    enabled: false
-    interfaces: []
-    capture_mode: metadata
+The `--listen` flag overrides `HTTP_HOST`/`HTTP_PORT` directly.
 
-  journald:
-    enabled: false
+### Runtime Settings
 
-  filelog:
-    enabled: false
-    paths: []
+Editable from the admin **Settings** page and persisted to `DATA_DIR/settings.json`:
 
-detection:
-  enabled: false
-  rules_path: "./configs/rules"
+| Setting           | Default    | Range                     |
+| ----------------- | ---------- | ------------------------- |
+| `instance_name`   | `Rasadbin` | 1–64 chars                |
+| `log_level`       | `info`     | debug/info/warn/error     |
+| `session_minutes` | `60`       | 5–1440                    |
+| `retention_days`  | `30`       | 1–3650 (not enforced yet) |
+| `refresh_seconds` | `2`        | 1–60                      |
 
-retention:
-  enabled: false
-  days: 30
-```
+### Integration State
 
-**Note:** This is an illustrative configuration schema, not a guarantee that these options are currently supported. Collector activation, storage initialization, retention, and configuration loading must be implemented before these settings take effect.
+Enable/disable state and alerting toggles are persisted to `DATA_DIR/integrations.json`.
 
 Never store credentials or other secrets in a committed configuration file.
 
@@ -381,15 +381,23 @@ Rasadbin is intended to handle sensitive system and network telemetry. Security 
 - Bind the management interface to localhost by default.
 - Do not expose the API publicly without appropriate authentication, authorization, and TLS.
 - Avoid running the entire application as root.
-- Grant packet-capture and log-reading permissions only where required.
+- Grant packet-capture and log-reading permissions only where required (`CAP_NET_RAW` for network capture).
 - Validate and sanitize untrusted event data.
 - Protect management endpoints against unauthorized changes.
-- Record sensitive administrative operations in an audit log.
+- Record sensitive administrative operations in an audit log (login, settings changes, integration toggles, password changes are logged).
 - Apply retention limits and protect stored event data.
-- Avoid collecting or retaining packet payloads unless explicitly required.
+- Avoid collecting or retaining packet payloads unless explicitly required (the network collector emits L3/L4 metadata only).
 - Do not treat a successful health check as proof that the entire SIEM is functioning correctly.
 
 Packet visibility depends on the network interface and deployment topology. Capturing on an ordinary interface does not automatically expose traffic between other hosts. A network TAP, mirrored switch port, or suitable observation point may be required.
+
+### Authentication Notes
+
+- Users and sessions are held in memory only; they are lost on restart.
+- Passwords are hashed with PBKDF2-SHA256 (600,000 iterations).
+- Five failed attempts trigger a 5-minute lockout per IP (login) or per username (password change).
+- Changing a password revokes all sessions for that user.
+- Session tokens are stored in `sessionStorage` by the web client.
 
 ## Project Structure
 
@@ -397,42 +405,49 @@ Packet visibility depends on the network interface and deployment topology. Capt
 rasadbin/
 ├── cmd/
 │   └── app/
-│       ├── main.go
-│       └── version.go
-├── scripts/
-│   ├── build.sh
-│   └── run_server.sh
-├── internal/            # planned
-│   ├── app/
-│   ├── config/
-│   ├── event/
+│       ├── main.go          # CLI entry, HTTP server, graceful shutdown
+│       └── version.go       # Product name, command name, version
+├── internal/
 │   ├── collector/
-│   │   ├── network/
-│   │   ├── journald/
-│   │   └── filelog/
-│   ├── pipeline/
-│   ├── detection/
-│   ├── storage/
-│   │   └── sqlite/
-│   ├── alert/
-│   ├── search/
-│   ├── api/
-│   │   └── handlers/
-│   └── security/
-├── configs/
-│   └── rules/           # planned
-├── deploy/              # planned
-├── migrations/          # planned
-├── tests/               # planned
-│   ├── fixtures/
-│   └── integration/
-├── web/                 # planned
+│   │   └── network/
+│   │       ├── collector_linux.go       # AF_PACKET capture (Linux)
+│   │       ├── collector_linux_test.go  # Ethernet/IPv4/TCP decoding tests
+│   │       └── collector_other.go       # Stub for non-Linux builds
+│   ├── config/
+│   │   ├── config.go        # Bootstrap config (flags/env/.env)
+│   │   └── env.go           # .env file loader
+│   └── web/
+│       ├── auth.go          # In-memory users, sessions, brute-force limits
+│       ├── hub.go           # WebSocket hub, events, stats
+│       ├── integrations.go  # Integration registry and persistence
+│       ├── integrations_test.go
+│       ├── server.go        # HTTP routes, static assets, network capture start
+│       ├── settings.go      # Runtime settings persistence
+│       └── ws.go            # WebSocket protocol (login, auth, dispatch)
+├── data/
+│   └── integrations.json    # Persisted integration state (generated)
+├── scripts/
+│   ├── build.sh             # Build with commit injection
+│   └── run_server.sh        # Run on 127.0.0.1:9090
+├── webui/
+│   ├── src/
+│   │   ├── components/      # RequireAuth, TopBar
+│   │   ├── lib/             # types.ts, ws.ts (WebSocket client)
+│   │   ├── pages/           # Dashboard, Integrations, IntegrationWorkspace, Login, Settings
+│   │   ├── App.tsx          # Routes
+│   │   ├── main.tsx
+│   │   └── styles.css
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── .env.example
 ├── .gitignore
 ├── go.mod
 └── README.md
 ```
 
-Directories marked `# planned` do not exist in the repository yet and are part of the target layout.
+Directories marked as planned in earlier versions (`internal/pipeline`, `internal/detection`, `internal/storage`, `internal/alert`, `internal/search`, `internal/api`, `configs/rules`, `deploy`, `migrations`, `tests`, `web`) do not exist yet.
 
 ## Design Principles
 
@@ -473,16 +488,13 @@ Rasadbin is an early-stage security monitoring project. It is not yet a replacem
 
 Use it initially in a controlled development or test environment. Validate detection coverage, event loss, access controls, and recovery behavior before relying on it for security-critical monitoring.
 
-
-## Built-in integration control plane
+## Built-in Integration Control Plane
 
 The Web UI includes an admin-only **Integrations** page. Built-in source definitions are persisted in `DATA_DIR/integrations.json` and can be enabled/disabled independently:
 
-- Network packets — packet/flow normalization and network-oriented detection packs.
-- systemd journal — journal field normalization and host/auth/service detection packs.
-- Syslog files — syslog parsing and SSH/sudo/kernel detection packs.
-- Service logs — service-specific parser adapters and service-health detection packs.
+- **Network packets** — AF_PACKET capture with L2–L4 protocol normalization; emits metadata-only events. Requires `CAP_NET_RAW`/root.
+- **systemd journal** — journal field normalization and host/auth/service detection packs (collector pending).
+- **Syslog files** — syslog parsing and SSH/sudo/kernel detection packs (collector pending).
+- **Service logs** — service-specific parser adapters and service-health detection packs (collector pending).
 
 Each integration exposes its collector, processor, detections, alerting switch, and a dedicated workspace route (`/integrations/<id>`). The WebSocket control messages are `integrations.get`, `integration.update`, and `integration.events`.
-
-**Implementation status:** this change implements the persisted integration registry, admin controls, source routing seam, and integration-specific UI workspaces. It does not claim that packet capture, journal following, or file-tail collectors are running yet: the UI explicitly reports that collector adapters are pending. Those adapters must implement the collector lifecycle and report health before these integrations can be considered operational. Enabling an integration does not grant Linux capabilities or bypass filesystem/journald permissions.

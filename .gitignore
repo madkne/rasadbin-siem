@@ -1,3 +1,4 @@
 repomix-output.xml
 build/
 .env
+storage/
