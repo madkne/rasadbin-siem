@@ -1,28 +1,50 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ws } from "../lib/ws";
-import type { Identity } from "../lib/types";
+import type { Alert, Identity } from "../lib/types";
 
 export default function TopBar() {
   const { pathname } = useLocation();
   const [connected, setConnected] = useState(false);
   const [me, setMe] = useState<Identity | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
     const offStatus = ws.onStatus(setConnected);
-    const offIdentity = ws.on("ready", setMe);
+    const offReady = ws.on("ready", (identity) => {
+      setMe(identity);
+      ws.send("alerts.get");
+    });
+
+    const offAlerts = ws.on("alerts", (a) => setAlerts(a ?? []));
+    const offAlert = ws.on("alert", (a) => {
+      setAlerts((prev) => {
+        const idx = prev.findIndex((x) => x.id === a.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = a;
+          return next;
+        }
+        return [a, ...prev];
+      });
+    });
 
     const onIdentity = (e: Event) => setMe((e as CustomEvent<Identity>).detail);
     window.addEventListener("rasadbin:identity", onIdentity);
 
+    if (ws.isReady) ws.send("alerts.get");
+
     return () => {
       offStatus();
-      offIdentity();
+      offReady();
+      offAlerts();
+      offAlert();
       window.removeEventListener("rasadbin:identity", onIdentity);
     };
   }, []);
 
   const brand = me?.instance_name ?? "Rasadbin";
+  const alertCount = alerts.length;
 
   return (
     <header className="topbar">
@@ -45,6 +67,16 @@ export default function TopBar() {
           className={pathname === "/alerts" ? "active" : ""}
         >
           Alerts
+          {alertCount > 0 && (
+            <span
+              className="badge alert-badge"
+              data-testid="alerts-badge"
+              id="alerts-badge"
+              aria-label={`${alertCount} alerts`}
+            >
+              {alertCount > 99 ? "99+" : alertCount}
+            </span>
+          )}
         </Link>
         {me?.role === "admin" && (
           <Link to="/rules" className={pathname === "/rules" ? "active" : ""}>

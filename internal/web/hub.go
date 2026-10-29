@@ -126,10 +126,18 @@ func (h *Hub) subscribers() []*client {
 	return out
 }
 
-// Publish records an event and pushes it to dashboard subscribers.
+// PublishAlert notifies connected clients about a newly raised alert.
 func (h *Hub) PublishAlert(a detection.Alert) {
 	b := encode("alert", a)
-	for _, c := range h.subscribers() {
+	h.mu.RLock()
+	clients := make([]*client, 0, len(h.clients))
+	for c := range h.clients {
+		if _, sess := c.identity(); sess != nil {
+			clients = append(clients, c)
+		}
+	}
+	h.mu.RUnlock()
+	for _, c := range clients {
 		c.enqueue(b)
 	}
 }
