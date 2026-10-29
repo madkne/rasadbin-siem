@@ -408,11 +408,39 @@ func (c *client) handleIntegrationUpdate(raw json.RawMessage, sess *Session) {
 		c.sendError("integration.update", "invalid integration payload")
 		return
 	}
-	item, err := c.srv.integrations.Update(req.ID, req.Enabled, req.Alerting)
+	item, err := c.srv.integrations.Update(
+		req.ID,
+		req.Enabled,
+		req.Alerting,
+	)
 	if err != nil {
 		c.sendError("integration.update", err.Error())
 		return
 	}
-	slog.Info("audit", "action", "integration.update", "integration", req.ID, "enabled", req.Enabled, "user", sess.Username, "ip", c.ip)
+
+	if c.srv.collectorManager != nil {
+		if err := c.srv.collectorManager.Apply(req.ID); err != nil {
+			// The manager has recorded the failure status.
+			// Return the latest integration so the UI can display it.
+			if latest, ok := c.srv.integrations.Get(req.ID); ok {
+				item = latest
+			}
+			slog.Error("integration collector update failed",
+				"integration", req.ID,
+				"error", err)
+		}
+	}
+
+	if latest, ok := c.srv.integrations.Get(req.ID); ok {
+		item = latest
+	}
+
+	slog.Info("audit",
+		"action", "integration.update",
+		"integration", req.ID,
+		"enabled", req.Enabled,
+		"user", sess.Username,
+		"ip", c.ip)
+
 	c.sendJSON("integration_saved", item)
 }

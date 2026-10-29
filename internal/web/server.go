@@ -28,14 +28,15 @@ type Config struct {
 
 // Server is the web UI: pages, static assets and the WebSocket hub.
 type Server struct {
-	hub             *Hub
-	auth            *Auth
-	settings        *SettingsStore
-	integrations    *IntegrationStore
-	static          fs.FS
-	store           EventQuerier
-	baseCtx         context.Context
-	networkCaptures []*network.Collector
+	hub              *Hub
+	auth             *Auth
+	settings         *SettingsStore
+	integrations     *IntegrationStore
+	static           fs.FS
+	store            EventQuerier
+	baseCtx          context.Context
+	networkCaptures  []*network.Collector
+	collectorManager *CollectorManager
 }
 
 // New builds the web UI server.
@@ -226,4 +227,60 @@ func (s *Server) StartSyslogCollection(ctx context.Context, paths []string) erro
 	}()
 	slog.Info("syslog collector started", "paths", c.Paths())
 	return nil
+}
+func (s *Server) InitCollectorManager(ctx context.Context) error {
+	m := NewCollectorManager(ctx, s.integrations)
+
+	if err := m.Register("network-packets", func() (CollectorRunner, error) {
+		c, err := network.New("any", func(e network.PacketEvent) {
+			s.Publish(Event{
+				Time:     e.Time,
+				Source:   "network-packets",
+				Severity: "info",
+				Message:  e.String(),
+			})
+		})
+		if err != nil {
+			return nil, err
+		}
+		return c.Run, nil
+	}); err != nil {
+		m.Close()
+		return err
+	}
+
+	if err := m.Register("syslog-files", func() (CollectorRunner, error) {
+		paths := []string{
+			"/var/log/auth.log",
+			"/var/log/syslog",
+			"/var/log/messages",
+			"/var/log/secure",
+		}
+
+		c, err := syslog.New(paths, func(e syslog.Entry) {
+			s.Publish(Event{
+				Time:     e.Time,
+				Source:   "syslog-files",
+				Severity: e.Severity,
+				Message:  e.String(),
+			})
+		})
+		if err != nil {
+			return nil, err
+		}
+		return c.Run, nil
+	}); err != nil {
+		m.Close()
+		return err
+	}
+
+	s.collectorManager = m
+	m.Reconcile()
+	return nil
+}
+
+func (s *Server) CloseCollectors() {
+	if s.collectorManager != nil {
+		s.collectorManager.Close()
+	}
 }

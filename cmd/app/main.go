@@ -113,6 +113,11 @@ func runCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
 	}
+	if err := ui.InitCollectorManager(ctx); err != nil {
+		return fmt.Errorf("initialize collector manager: %w", err)
+	}
+	defer ui.CloseCollectors()
+
 	store, err := storage.Open(cfg.DB)
 	if err != nil {
 		return fmt.Errorf("open event store: %w", err)

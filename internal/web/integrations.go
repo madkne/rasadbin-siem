@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -147,4 +148,46 @@ func (st *IntegrationStore) ProcessEvent(e Event) (Event, bool) {
 		e.Time = time.Now().UTC()
 	}
 	return e, true
+}
+
+// SetStatus updates the runtime status without changing user configuration.
+func (st *IntegrationStore) SetStatus(id, status string) error {
+	switch status {
+	case "not_configured",
+		"disabled",
+		"enabled_waiting_for_collector",
+		"running",
+		"failed":
+	default:
+		return fmt.Errorf("invalid integration status: %s", status)
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	v, ok := st.items[id]
+	if !ok {
+		return errors.New("unknown integration")
+	}
+
+	v.Status = status
+	st.items[id] = v
+
+	b, err := json.MarshalIndent(st.items, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(st.path), 0700); err != nil {
+		return err
+	}
+
+	tmp := st.path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, st.path); err != nil {
+		return err
+	}
+
+	return nil
 }
