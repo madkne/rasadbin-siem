@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import TopBar from "../components/TopBar";
+import Shell from "../components/Shell";
+import { useSearchParams } from "react-router-dom";
 import { ws } from "../lib/ws";
 import type { SearchQuery, SearchResult } from "../lib/types";
 
@@ -12,8 +13,9 @@ const REFRESH_OPTIONS = [
 ];
 
 export default function Discover() {
+  const [searchParams] = useSearchParams();
   // Query state
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [severity, setSeverity] = useState<string>("");
   const [sources, setSources] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
@@ -88,6 +90,15 @@ export default function Discover() {
     [result],
   );
 
+  const sourceCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of result?.events ?? []) {
+      const key = e.source || "system";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  }, [result]);
+
   function toggleSource(s: string) {
     setSelectedSources((prev) =>
       prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
@@ -95,8 +106,7 @@ export default function Discover() {
   }
 
   return (
-    <>
-      <TopBar />
+    <Shell>
       <main className="discover-page">
         <div className="page-heading">
           <div>
@@ -161,6 +171,38 @@ export default function Discover() {
 
         {error && <p className="msg error" role="alert">{error}</p>}
 
+        <div className="discover-layout">
+          <aside className="discover-fields" aria-label="Field summary">
+            <h3>Fields</h3>
+            <div className="discover-field">
+              <span>source</span>
+              <span className="muted">{sourceCounts.length} values</span>
+            </div>
+            {sourceCounts.map(([s, c]) => (
+              <button
+                key={s}
+                type="button"
+                className={`discover-field-value ${selectedSources.includes(s) ? "on" : ""}`}
+                onClick={() => toggleSource(s)}
+              >
+                <span>{s}</span>
+                <span>{c}</span>
+              </button>
+            ))}
+            <div className="discover-field">
+              <span>severity</span>
+            </div>
+            {["critical","high","medium","low","info"].map((sv) => {
+              const c = (result?.events ?? []).filter((e) => e.severity === sv).length;
+              return (
+                <div key={sv} className="discover-field-value static">
+                  <span className={`sev sev-${sv}`}>{sv}</span>
+                  <span>{c}</span>
+                </div>
+              );
+            })}
+          </aside>
+          <div className="discover-main">
         {/* Histogram */}
         <section className="discover-histogram" aria-label="Event histogram">
           {result?.buckets?.length ? (
@@ -229,7 +271,9 @@ export default function Discover() {
             )}
           </div>
         </section>
+          </div>
+        </div>
       </main>
-    </>
+    </Shell>
   );
 }

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import TopBar from "../components/TopBar";
+import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Alert } from "../lib/types";
 
@@ -7,6 +7,9 @@ export default function Alerts() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [severityFilter, setSeverityFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const subscribe = () => {
@@ -41,9 +44,17 @@ export default function Alerts() {
     };
   }, []);
 
+  const filteredAlerts = alerts.filter((a) => {
+    if (severityFilter && a.severity !== severityFilter) return false;
+    if (statusFilter && a.status !== statusFilter) return false;
+    if (search && !`${a.title} ${a.description} ${a.source} ${a.rule_id}`.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const statuses = [...new Set(alerts.map((a) => a.status).filter(Boolean))];
+
   return (
-    <>
-      <TopBar />
+    <Shell>
       <main className="discover-page">
         <div className="page-heading">
           <div>
@@ -51,8 +62,19 @@ export default function Alerts() {
             <h1>Alerts</h1>
             <p className="muted">Rule-based alerts raised by the detection engine.</p>
           </div>
-          <span className="integration-count">{alerts.length} alerts</span>
+          <span className="integration-count">{filteredAlerts.length} / {alerts.length} alerts</span>
         </div>
+        <section className="discover-querybar">
+          <input className="discover-search-input" placeholder="Search alerts…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} aria-label="Severity filter">
+            <option value="">All severities</option>
+            {["critical","high","medium","low","info"].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status filter">
+            <option value="">All statuses</option>
+            {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </section>
         {error && <p className="msg error" role="alert">{error}</p>}
         <section className="discover-results">
           <div className="table-wrap">
@@ -68,7 +90,7 @@ export default function Alerts() {
                 </tr>
               </thead>
               <tbody>
-                {alerts.map((a) => {
+                {filteredAlerts.map((a) => {
                   const open = expanded === a.id;
                   return (
                     <Fragment key={a.id}>
@@ -118,7 +140,7 @@ export default function Alerts() {
                 })}
               </tbody>
             </table>
-            {alerts.length === 0 && (
+            {filteredAlerts.length === 0 && (
               <div className="empty-state">
                 <strong>No alerts</strong>
                 <p>Alerts will appear here when detection rules fire.</p>
@@ -127,6 +149,6 @@ export default function Alerts() {
           </div>
         </section>
       </main>
-    </>
+    </Shell>
   );
 }

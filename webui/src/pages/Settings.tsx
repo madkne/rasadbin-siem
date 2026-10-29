@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import TopBar from "../components/TopBar";
+import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Settings as SettingsT } from "../lib/types";
 
@@ -72,8 +72,7 @@ export default function Settings() {
   }
 
   return (
-    <>
-      <TopBar />
+    <Shell>
       <main className="settings-page">
         <section className="page-heading">
           <div>
@@ -266,6 +265,6 @@ export default function Settings() {
           </>
         )}
       </main>
-    </>
+    </Shell>
   );
 }

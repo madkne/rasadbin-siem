@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import TopBar from "../components/TopBar";
+import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { DetectionRule, ErrorPayload } from "../lib/types";
 
@@ -167,8 +167,7 @@ export default function Rules() {
   }
 
   return (
-    <>
-      <TopBar />
+    <Shell>
       <main className="rules-page">
         <div className="page-heading">
           <div>
@@ -517,6 +516,6 @@ export default function Rules() {
           detection logic requires an engine implementation for that rule kind.
         </p>
       </main>
-    </>
+    </Shell>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import TopBar from "../components/TopBar";
+import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Integration } from "../lib/types";
 const statusText: Record<string,string> = {
@@ -26,7 +26,7 @@ export default function Integrations() {
     setBusy(item.id); setError("");
     ws.send("integration.update",{id:item.id,enabled,alerting});
   }
-  return <><TopBar/><main className="integration-page">
+  return <Shell><main className="integration-page">
     <div className="page-heading"><div><p className="eyebrow">DATA SOURCES</p><h1>Integrations</h1><p className="muted">Enable the telemetry sources Rasadbin should process. Each integration defines its own collector, processor, detections and alert policy.</p></div><span className="integration-count">{items.filter(i=>i.enabled).length} / {items.length} enabled</span></div>
     {error&&<p className="msg error" role="alert">{error}</p>}
     <div className="integration-grid">{items.map(item=><section className="integration-card" key={item.id}>
@@ -37,5 +37,5 @@ export default function Integrations() {
       <Link className="integration-detail-link" to={`/integrations/${item.id}`}>Open integration workspace <span aria-hidden>→</span></Link>
     </section>)}</div>
     <p className="muted integration-note">Important: integration controls and configuration are persisted. A source is not considered operational until its collector adapter reports healthy; collector adapters are being introduced independently of this control plane.</p>
-  </main></>;
+  </main></Shell>;
 }

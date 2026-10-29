@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import TopBar from "../components/TopBar";
+import Shell from "../components/Shell";
 import { fmtDuration, ws } from "../lib/ws";
 import type { EventEntry, Stats } from "../lib/types";
 
@@ -49,9 +49,14 @@ export default function Dashboard() {
     [events, severity],
   );
 
+  const severityCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) counts[e.severity] = (counts[e.severity] ?? 0) + 1;
+    return counts;
+  }, [events]);
+
   return (
-    <>
-      <TopBar />
+    <Shell>
       <main className="dashboard">
         <section className="page-heading">
           <div>
@@ -92,6 +97,31 @@ export default function Dashboard() {
             detail="Go runtime workers"
             icon="⤢"
           />
+        </section>
+
+        <section className="panel severity-breakdown">
+          <div className="panel-heading">
+            <div>
+              <div className="eyebrow">DETECTION</div>
+              <h2>Severity breakdown</h2>
+            </div>
+            <span className="metric-chip">{events.length} events</span>
+          </div>
+          <div className="severity-bars">
+            {["critical","high","medium","low","info"].map((sev) => {
+              const c = severityCounts[sev] ?? 0;
+              const pct = events.length ? Math.round((c / events.length) * 100) : 0;
+              return (
+                <div className="severity-bar-row" key={sev}>
+                  <span className={`sev sev-${sev}`}>{sev}</span>
+                  <div className="severity-bar-track">
+                    <div className={`severity-bar-fill sev-${sev}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="severity-bar-count">{c}</span>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <section className="content-grid">
@@ -214,7 +244,7 @@ export default function Dashboard() {
           </footer>
         </section>
       </main>
-    </>
+    </Shell>
   );
 }
 
