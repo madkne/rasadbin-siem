@@ -438,7 +438,7 @@ rasadbin/
 │   │   ├── pages/           # Dashboard, Integrations, IntegrationWorkspace, Login, Settings
 │   │   ├── App.tsx          # Routes
 │   │   ├── main.tsx
-│   │   └── styles.css
+│   │   └── styles.scss
 │   ├── index.html
 │   ├── package.json
 │   ├── tsconfig.json
