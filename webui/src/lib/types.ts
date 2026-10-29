@@ -125,6 +125,10 @@ export interface WsMessageMap {
   alert: Alert;
   alerts: Alert[];
   integrations: Integration[];
+  rules: DetectionRule[];
+  "rule.saved": { rule: DetectionRule; rules: DetectionRule[] };
+  "rule.deleted": { id: string; rules: DetectionRule[] };
+  "rule.validated": { valid: boolean; message: string };
   integration_saved: Integration;
   "integration.events": { id: string; events: EventEntry[] };
   "integration.status": { id: string; status: string };
@@ -140,4 +144,18 @@ export interface WsMessageMap {
   login_failed: ErrorPayload;
   auth_ok: Identity;
   auth_failed: null;
+}
+
+export interface DetectionRule {
+  id: string;
+  title: string;
+  description: string;
+  severity: "info" | "low" | "medium" | "high" | "critical";
+  enabled: boolean;
+  sources: string[];
+  match_any: string[];
+  threshold: number;
+  window_seconds: number;
+  dedup_seconds: number;
+  kind: string;
 }

@@ -47,6 +47,11 @@ export default function TopBar() {
           Alerts
         </Link>
         {me?.role === "admin" && (
+          <Link to="/rules" className={pathname === "/rules" ? "active" : ""}>
+            Rules
+          </Link>
+        )}
+        {me?.role === "admin" && (
           <Link
             to="/integrations"
             className={pathname.startsWith("/integrations") ? "active" : ""}

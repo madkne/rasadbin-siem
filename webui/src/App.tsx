@@ -7,6 +7,7 @@ import Integrations from "./pages/Integrations";
 import IntegrationWorkspace from "./pages/IntegrationWorkspace";
 import Discover from "./pages/Discover";
 import Alerts from "./pages/Alerts";
+import Rules from "./pages/Rules";
 
 export default function App() {
   return (
@@ -19,6 +20,15 @@ export default function App() {
         element={
           <RequireAuth>
             <Dashboard />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/rules"
+        element={
+          <RequireAuth requireAdmin>
+            <Rules />
           </RequireAuth>
         }
       />

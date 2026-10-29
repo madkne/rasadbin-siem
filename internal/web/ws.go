@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"rasadbin/internal/detection"
 )
 
 const (
@@ -214,6 +215,27 @@ func (c *client) dispatch(env envelope) {
 		}
 	case "alerts.get":
 		c.sendJSON("alerts", c.srv.RecentAlerts(500))
+
+	case "rules.get":
+		if c.requireAdmin(env.Type, sess) {
+			if c.srv.detection == nil {
+				c.sendError(env.Type, "detection engine is unavailable")
+				break
+			}
+			c.sendJSON("rules", c.srv.detection.Rules())
+		}
+	case "rule.validate":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleRuleValidate(env.Data)
+		}
+	case "rule.save":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleRuleSave(env.Data, sess)
+		}
+	case "rule.delete":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleRuleDelete(env.Data, sess)
+		}
 
 	case "integration.update":
 		if c.requireAdmin(env.Type, sess) {
@@ -445,4 +467,55 @@ func (c *client) handleIntegrationUpdate(raw json.RawMessage, sess *Session) {
 		"ip", c.ip)
 
 	c.srv.hub.Broadcast("integration_saved", item)
+}
+
+func (c *client) handleRuleValidate(raw json.RawMessage) {
+	var rule detection.Rule
+	if err := decodeStrict(raw, &rule); err != nil {
+		c.sendError("rule.validate", "invalid rule payload")
+		return
+	}
+	if err := detection.ValidateRule(rule); err != nil {
+		c.sendJSON("rule.validated", map[string]any{"valid": false, "message": err.Error()})
+		return
+	}
+	c.sendJSON("rule.validated", map[string]any{"valid": true, "message": "Rule is valid."})
+}
+
+func (c *client) handleRuleSave(raw json.RawMessage, sess *Session) {
+	var rule detection.Rule
+	if err := decodeStrict(raw, &rule); err != nil {
+		c.sendError("rule.save", "invalid rule payload")
+		return
+	}
+	if c.srv.detection == nil {
+		c.sendError("rule.save", "detection engine is unavailable")
+		return
+	}
+	if err := c.srv.detection.SaveRule(rule); err != nil {
+		c.sendError("rule.save", err.Error())
+		return
+	}
+	slog.Info("audit", "action", "rule.save", "rule", rule.ID, "user", sess.Username, "ip", c.ip)
+	c.sendJSON("rule.saved", map[string]any{"rule": rule, "rules": c.srv.detection.Rules()})
+}
+
+func (c *client) handleRuleDelete(raw json.RawMessage, sess *Session) {
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := decodeStrict(raw, &req); err != nil || req.ID == "" {
+		c.sendError("rule.delete", "invalid rule id")
+		return
+	}
+	if c.srv.detection == nil {
+		c.sendError("rule.delete", "detection engine is unavailable")
+		return
+	}
+	if err := c.srv.detection.DeleteRule(req.ID); err != nil {
+		c.sendError("rule.delete", err.Error())
+		return
+	}
+	slog.Info("audit", "action", "rule.delete", "rule", req.ID, "user", sess.Username, "ip", c.ip)
+	c.sendJSON("rule.deleted", map[string]any{"id": req.ID, "rules": c.srv.detection.Rules()})
 }

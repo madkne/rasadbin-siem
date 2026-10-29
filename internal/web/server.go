@@ -176,7 +176,7 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	index := s.page()
-	for _, name := range []string{"login", "dashboard", "settings", "integrations", "events", "alerts", "network", "systemd", "syslog", "services"} {
+	for _, name := range []string{"login", "dashboard", "settings", "integrations", "events", "alerts", "rules", "network", "systemd", "syslog", "services"} {
 		mux.HandleFunc("GET /"+name, index)
 	}
 

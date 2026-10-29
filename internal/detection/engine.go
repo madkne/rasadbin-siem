@@ -66,10 +66,11 @@ type Engine struct {
 	alerts    map[string]Alert
 	order     []string
 	maxAlerts int
+	rulesDir  string
 }
 
 func New(rulesDir string) (*Engine, error) {
-	e := &Engine{history: map[string][]occurrence{}, alerts: map[string]Alert{}, maxAlerts: 5000}
+	e := &Engine{history: map[string][]occurrence{}, alerts: map[string]Alert{}, maxAlerts: 5000, rulesDir: rulesDir}
 	if err := e.Reload(rulesDir); err != nil {
 		return nil, err
 	}
@@ -157,6 +158,7 @@ func (e *Engine) Reload(dir string) error {
 	sort.Slice(rules, func(i, j int) bool { return rules[i].ID < rules[j].ID })
 	e.mu.Lock()
 	e.rules = rules
+	e.rulesDir = dir
 	e.history = map[string][]occurrence{}
 	e.mu.Unlock()
 	return nil
