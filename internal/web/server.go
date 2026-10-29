@@ -139,7 +139,7 @@ func secureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; connect-src 'self'; img-src 'self' data:; "+
+			"default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		h.Set("X-Content-Type-Options", "nosniff")

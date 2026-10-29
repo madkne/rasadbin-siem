@@ -40,7 +40,7 @@ export default function TopBar() {
       <span className="spacer" />
       <span
         className={`dot${connected ? " on" : ""}`}
-        title={connected ? "connected" : "disconnected"}
+        title={connected ? "WebSocket connected" : "WebSocket disconnected"} role="status" aria-label={connected ? "WebSocket connected" : "WebSocket disconnected"}
       />
       <span className="muted">
         {me ? `${me.username} (${me.role})` : ""}

@@ -3,16 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { ws } from "../lib/ws";
 import type { ErrorPayload } from "../lib/types";
 
-interface LoginOk {
-  token: string;
-  username: string;
-  role: string;
-  expires_at: string;
-}
+interface LoginOk { token: string; username: string; role: string; expires_at: string; }
 
 export default function Login() {
   const nav = useNavigate();
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(ws.isConnected);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [username, setUsername] = useState("");
@@ -20,67 +15,42 @@ export default function Login() {
   const pwRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    ws.connect({ auth: false });
     const offStatus = ws.onStatus(setConnected);
-    const offOk = ws.on<LoginOk>("login_ok", (d) => {
-      ws.setToken(d.token);
-      nav("/dashboard", { replace: true });
-    });
+    const offOk = ws.on<LoginOk>("login_ok", () => nav("/dashboard", { replace: true }));
     const offFail = ws.on<ErrorPayload>("login_failed", (d) => {
-      setMsg(d.message);
-      setBusy(false);
-      setPassword("");
-      pwRef.current?.focus();
+      setMsg(d.message || "Sign-in failed. Check your credentials and try again.");
+      setBusy(false); setPassword(""); pwRef.current?.focus();
     });
-    return () => {
-      offStatus();
-      offOk();
-      offFail();
-    };
+    ws.connect({ auth: false });
+    return () => { offStatus(); offOk(); offFail(); };
   }, [nav]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg("");
-    setBusy(true);
+    if (!connected || busy) return;
+    setMsg(""); setBusy(true);
     ws.send("login", { username: username.trim(), password });
   }
 
-  return (
-    <div className="center">
-      <main className="card login">
-        <h1>Rasadbin</h1>
-        <p className="muted">Sign in to continue</p>
+  return <div className="login-shell">
+    <aside className="login-aside">
+      <div className="login-brand"><span className="brand-mark">R</span><span>RASADBIN<span className="brand-sub">SECURITY INTELLIGENCE</span></span></div>
+      <div className="login-pitch"><div className="eyebrow">LINUX-FIRST SIEM</div><h1>See what’s happening.<br /><em>Know what matters.</em></h1>
+        <p>A focused command center for system health, security telemetry, and the signals that deserve your attention.</p></div>
+      <div className="login-aside-foot"><span className="live-dot" /> Local instance · Protected access</div>
+    </aside>
+    <main className="login-main">
+      <section className="login-card">
+        <div className="login-card-heading"><div className="eyebrow">ADMINISTRATOR ACCESS</div><h2>Welcome back</h2><p>Sign in to open your security workspace.</p></div>
         <form onSubmit={submit}>
-          <label>
-            Username
-            <input
-              autoComplete="username"
-              maxLength={128}
-              required
-              autoFocus
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </label>
-          <label>
-            Password
-            <input
-              ref={pwRef}
-              type="password"
-              autoComplete="current-password"
-              maxLength={128}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          <button type="submit" disabled={!connected || busy}>
-            {!connected ? "Connecting…" : busy ? "Signing in…" : "Sign in"}
-          </button>
+          <label>Username<input autoComplete="username" maxLength={128} required autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" /></label>
+          <label>Password<input ref={pwRef} type="password" autoComplete="current-password" maxLength={128} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></label>
           {msg && <p className="msg error" role="alert">{msg}</p>}
+          <button className="sign-in-button" type="submit" disabled={!connected || busy}>{busy ? <><span className="button-spinner" /> Signing in…</> : "Sign in securely"} <span aria-hidden="true">→</span></button>
         </form>
-      </main>
-    </div>
-  );
+        <div className={`connection-note ${connected ? "connected" : ""}`}><span className="live-dot" />{connected ? "Secure channel available" : "Connecting to local service…"}</div>
+      </section>
+      <footer className="login-footer">Rasadbin <span>·</span> Security monitoring, built for Linux</footer>
+    </main>
+  </div>;
 }
