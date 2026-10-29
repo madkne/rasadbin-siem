@@ -27,12 +27,12 @@ type Config struct {
 
 // Server is the web UI: pages, static assets and the WebSocket hub.
 type Server struct {
-	hub            *Hub
-	auth           *Auth
-	settings       *SettingsStore
-	integrations   *IntegrationStore
-	static         fs.FS
-	networkCapture *network.Collector
+	hub             *Hub
+	auth            *Auth
+	settings        *SettingsStore
+	integrations    *IntegrationStore
+	static          fs.FS
+	networkCaptures []*network.Collector
 }
 
 // New builds the web UI server.
@@ -182,29 +182,35 @@ func parseLevel(s string) slog.Level {
 // StartNetworkCapture starts the Linux packet collector when explicitly enabled.
 // The caller should invoke this once after constructing the server. Capture needs
 // CAP_NET_RAW/root and is intentionally not started implicitly by New().
-func (s *Server) StartNetworkCapture(ctx context.Context, iface string) error {
-	if item, ok := s.integrations.Get("network-packets"); !ok || !item.Enabled {
+
+func (s *Server) StartNetworkCapture(ctx context.Context, ifaces []string) error {
+	item, ok := s.integrations.Get("network-packets")
+	if !ok || !item.Enabled {
 		return nil
 	}
-	c, err := network.New(iface, func(e network.PacketEvent) {
-		s.Publish(Event{
-			Time:     e.Time,
-			Source:   "network-packets",
-			Severity: "info",
-			Message:  e.String(),
-		})
-	})
-	if err != nil {
-		s.Publish(Event{Source: "network-packets", Severity: "high", Message: "packet capture failed to start: " + err.Error()})
-		return err
+	if len(ifaces) == 0 {
+		ifaces = []string{""} // collector default ("any")
 	}
-	s.networkCapture = c
-	go func() {
-		if err := c.Run(ctx); err != nil && ctx.Err() == nil {
-			slog.Error("network packet collector stopped", "error", err, "interface", iface)
-			s.Publish(Event{Source: "network-packets", Severity: "high", Message: "packet capture stopped: " + err.Error()})
+	var firstErr error
+	for _, iface := range ifaces {
+		c, err := network.New(iface, func(e network.PacketEvent) {
+			s.Publish(Event{Time: e.Time, Source: "network-packets", Severity: "info", Message: e.String()})
+		})
+		if err != nil {
+			s.Publish(Event{Source: "network-packets", Severity: "high", Message: "packet capture failed to start: " + err.Error()})
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
-	}()
-	slog.Info("network packet collector started", "interface", c.Interface())
-	return nil
+		s.networkCaptures = append(s.networkCaptures, c)
+		go func(c *network.Collector) {
+			if err := c.Run(ctx); err != nil && ctx.Err() == nil {
+				slog.Error("network packet collector stopped", "error", err, "interface", c.Interface())
+				s.Publish(Event{Source: "network-packets", Severity: "high", Message: "packet capture stopped: " + err.Error()})
+			}
+		}(c)
+		slog.Info("network packet collector started", "interface", c.Interface())
+	}
+	return firstErr
 }

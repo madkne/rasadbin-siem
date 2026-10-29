@@ -121,7 +121,7 @@ func runCommand(args []string) error {
 		return fmt.Errorf("web UI: %w", err)
 	}
 	go ui.Run(ctx)
-	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterface); err != nil {
+	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterfaces); err != nil {
 		slog.Warn("network packet capture unavailable", "error", err)
 	}
 
@@ -229,8 +229,8 @@ func printWelcome(cfg config.Config) {
 	fmt.Printf("  WebSocket     ws://%s/ws\n", cfg.ListenAddr)
 	fmt.Printf("  Data dir      %s\n", cfg.DataDir)
 	fmt.Printf("  Env file      %s\n", cfg.EnvFile)
-	if cfg.CaptureInterface != "" {
-		fmt.Printf("  Capture iface %s\n", cfg.CaptureInterface)
+	if len(cfg.CaptureInterfaces) > 0 {
+		fmt.Printf("  Capture iface %s\n", cfg.CaptureInterfaces)
 	}
 	fmt.Println()
 	fmt.Println("  ─────────────────────────────────────────────────────────────")

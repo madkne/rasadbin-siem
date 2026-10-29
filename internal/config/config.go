@@ -20,12 +20,12 @@ import (
 
 // Config is the immutable process configuration resolved at startup.
 type Config struct {
-	ListenAddr       string
-	DataDir          string
-	WebUIDir         string
-	AdminPassword    string
-	CaptureInterface string // empty = collector default
-	EnvFile          string // path actually loaded, for logging
+	ListenAddr        string
+	DataDir           string
+	WebUIDir          string
+	AdminPassword     string
+	CaptureInterfaces []string // empty = collector default
+	EnvFile           string   // path actually loaded, for logging
 }
 
 // Load resolves configuration from .env, the environment and args.
@@ -60,12 +60,12 @@ func Load(args []string) (Config, error) {
 	}
 
 	cfg := Config{
-		ListenAddr:       strings.TrimSpace(*listenAddr),
-		DataDir:          strings.TrimSpace(*dataDir),
-		WebUIDir:         strings.TrimSpace(*webUIDir),
-		AdminPassword:    os.Getenv("ADMIN_PASSWORD"),
-		CaptureInterface: strings.TrimSpace(*captureInterface),
-		EnvFile:          envFile,
+		ListenAddr:        strings.TrimSpace(*listenAddr),
+		DataDir:           strings.TrimSpace(*dataDir),
+		WebUIDir:          strings.TrimSpace(*webUIDir),
+		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
+		CaptureInterfaces: splitInterfaces(*captureInterface),
+		EnvFile:           envFile,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -92,4 +92,23 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// splitInterfaces turns "eth0,enp0s31f6" or "*" into a list.
+// "*" and "any" both mean "all interfaces" (a single unbind-ed capture).
+func splitInterfaces(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	if raw == "*" || raw == "any" {
+		return []string{"any"}
+	}
+	var out []string
+	for _, p := range strings.Split(raw, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
