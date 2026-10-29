@@ -85,6 +85,8 @@ func runCommand(args []string) error {
 		"directory for persisted settings",
 	)
 
+	webUIDir := fs.String("webui-dir", "webui/dist", "path to built web UI assets")
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -133,6 +135,7 @@ func runCommand(args []string) error {
 		Version:       APP_VERSION,
 		Commit:        commit,
 		LogLevel:      logLevel,
+		WebUIDir:      *webUIDir,
 	})
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
