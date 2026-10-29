@@ -19,7 +19,7 @@ export default function RequireAuth({ children, requireAdmin }: Props) {
       setFailed(true);
       return;
     }
-    const offReady = ws.on<Identity>("ready", (me) => {
+    const offReady = ws.on("ready", (me) => {
       setIdentity(me);
       setFailed(false);
     });

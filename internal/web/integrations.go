@@ -29,9 +29,10 @@ type Integration struct {
 }
 
 type IntegrationStore struct {
-	mu    sync.RWMutex
-	path  string
-	items map[string]Integration
+	mu     sync.RWMutex
+	path   string
+	items  map[string]Integration
+	notify func(string, any)
 }
 
 func builtinIntegrations() []Integration {
@@ -163,10 +164,10 @@ func (st *IntegrationStore) SetStatus(id, status string) error {
 	}
 
 	st.mu.Lock()
-	defer st.mu.Unlock()
 
 	v, ok := st.items[id]
 	if !ok {
+		st.mu.Unlock()
 		return errors.New("unknown integration")
 	}
 
@@ -175,18 +176,31 @@ func (st *IntegrationStore) SetStatus(id, status string) error {
 
 	b, err := json.MarshalIndent(st.items, "", "  ")
 	if err != nil {
+		st.mu.Unlock()
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(st.path), 0700); err != nil {
+		st.mu.Unlock()
 		return err
 	}
 
 	tmp := st.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0600); err != nil {
+	if err = os.WriteFile(tmp, b, 0600); err != nil {
+		st.mu.Unlock()
 		return err
 	}
-	if err := os.Rename(tmp, st.path); err != nil {
+	if err = os.Rename(tmp, st.path); err != nil {
+		st.mu.Unlock()
 		return err
+	}
+
+	notify := st.notify
+	item := v
+	st.mu.Unlock()
+
+	if notify != nil {
+		notify("integration.status", map[string]string{"id": id, "status": status})
+		notify("integration_saved", item)
 	}
 
 	return nil

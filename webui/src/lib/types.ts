@@ -92,3 +92,52 @@ export interface Alert {
   evidence?: string[];
   status: string;
 }
+
+export interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  enabled: boolean;
+  collector: string;
+  processor: string;
+  detections: string[];
+  alerting: boolean;
+  status: string;
+  updated_at?: string;
+}
+
+export interface LoginOk {
+  token: string;
+  username: string;
+  role: string;
+  expires_at: string;
+}
+
+// Typed map of WebSocket message types to their payload shapes.
+export interface WsMessageMap {
+  ready: Identity;
+  open: undefined;
+  close: undefined;
+  dashboard: DashboardPayload;
+  stats: Stats;
+  event: EventEntry;
+  alert: Alert;
+  alerts: Alert[];
+  integrations: Integration[];
+  integration_saved: Integration;
+  "integration.events": { id: string; events: EventEntry[] };
+  "integration.status": { id: string; status: string };
+  "discover.results": SearchResult;
+  "discover.sources": string[];
+  settings: Settings;
+  settings_saved: Settings;
+  error: ErrorPayload;
+  session_expired: null;
+  logged_out: null;
+  password_changed: null;
+  login_ok: LoginOk;
+  login_failed: ErrorPayload;
+  auth_ok: Identity;
+  auth_failed: null;
+}

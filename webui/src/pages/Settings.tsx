@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import TopBar from "../components/TopBar";
 import { ws } from "../lib/ws";
-import type { ErrorPayload, Settings as SettingsT } from "../lib/types";
+import type { Settings as SettingsT } from "../lib/types";
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsT | null>(null);
@@ -10,12 +10,12 @@ export default function Settings() {
 
   useEffect(() => {
     const offReady = ws.on("ready", () => ws.send("settings.get"));
-    const offSettings = ws.on<SettingsT>("settings", setSettings);
-    const offSaved = ws.on<SettingsT>("settings_saved", (s) => {
+    const offSettings = ws.on("settings", setSettings);
+    const offSaved = ws.on("settings_saved", (s) => {
       setSettings(s);
       setSettingsMsg({ text: "Settings saved.", ok: true });
     });
-    const offErr = ws.on<ErrorPayload>("error", (e) => {
+    const offErr = ws.on("error", (e) => {
       const msg = { text: e.message, ok: false };
       if (e.for === "settings.update") setSettingsMsg(msg);
       else if (e.for === "password.change") setPwMsg(msg);

@@ -14,8 +14,8 @@ export default function Alerts() {
       ws.send("alerts.get");
     };
     const offReady = ws.on("ready", subscribe);
-    const offAlerts = ws.on<Alert[]>("alerts", (a) => setAlerts(a ?? []));
-    const offAlert = ws.on<Alert>("alert", (a) => {
+    const offAlerts = ws.on("alerts", (a) => setAlerts(a ?? []));
+    const offAlert = ws.on("alert", (a) => {
       setAlerts((prev) => {
         const idx = prev.findIndex((x) => x.id === a.id);
         if (idx >= 0) {
@@ -26,7 +26,7 @@ export default function Alerts() {
         return [a, ...prev];
       });
     });
-    const offErr = ws.on<{ for?: string; message: string }>("error", (e) => {
+    const offErr = ws.on("error", (e) => {
       if (e.for === "alerts.get") {
         setError(e.message);
       }

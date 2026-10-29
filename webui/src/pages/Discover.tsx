@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TopBar from "../components/TopBar";
 import { ws } from "../lib/ws";
-import type { EventEntry, SearchQuery, SearchResult } from "../lib/types";
+import type { SearchQuery, SearchResult } from "../lib/types";
 
 const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
 const REFRESH_OPTIONS = [
@@ -54,13 +54,13 @@ export default function Discover() {
       ws.send("discover.sources");
       runSearch();
     });
-    const offResults = ws.on<SearchResult>("discover.results", (r) => {
+    const offResults = ws.on("discover.results", (r) => {
       inFlight.current = false;
       setLoading(false);
       setResult(r);
     });
-    const offSources = ws.on<string[]>("discover.sources", setSources);
-    const offErr = ws.on<{ for?: string; message: string }>("error", (e) => {
+    const offSources = ws.on("discover.sources", setSources);
+    const offErr = ws.on("error", (e) => {
       if (e.for === "discover.search") {
         inFlight.current = false;
         setLoading(false);
@@ -69,7 +69,7 @@ export default function Discover() {
     });
     // Live updates: new events arriving via the existing feed are appended
     // client-side, so Discover feels live without re-querying.
-    const offEvent = ws.on<EventEntry>("event", (e) => {
+    const offEvent = ws.on("event", (e) => {
       setResult((prev) => prev ? { ...prev, events: [e, ...prev.events], total: prev.total + 1 } : prev);
     });
     if (ws.isReady) { ws.send("discover.sources"); runSearch(); }

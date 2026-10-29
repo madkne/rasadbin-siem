@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import TopBar from "../components/TopBar";
 import { fmtDuration, ws } from "../lib/ws";
-import type { DashboardPayload, EventEntry, Stats } from "../lib/types";
+import type { EventEntry, Stats } from "../lib/types";
 
 const MAX_POINTS = 60;
 const MAX_EVENTS = 50;
@@ -15,16 +15,16 @@ export default function Dashboard() {
   useEffect(() => {
     const subscribe = () => ws.send("subscribe", { topic: "dashboard" });
     const offReady = ws.on("ready", subscribe);
-    const offDash = ws.on<DashboardPayload>("dashboard", (d) => {
+    const offDash = ws.on("dashboard", (d) => {
       setStats(d.stats);
       setEvents(d.events ?? []);
       pushHeap(d.stats.heap_mb);
     });
-    const offStats = ws.on<Stats>("stats", (s) => {
+    const offStats = ws.on("stats", (s) => {
       setStats(s);
       pushHeap(s.heap_mb);
     });
-    const offEvent = ws.on<EventEntry>("event", (e) => setEvents((prev) => [e, ...prev].slice(0, MAX_EVENTS)));
+    const offEvent = ws.on("event", (e) => setEvents((prev) => [e, ...prev].slice(0, MAX_EVENTS)));
     // If this component mounts after auth completes, subscribe immediately.
     if (ws.isReady) subscribe();
     function pushHeap(value: number) {

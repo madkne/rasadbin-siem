@@ -1,4 +1,4 @@
-import type { Envelope, Identity } from "./types";
+import type { Envelope, Identity, WsMessageMap } from "./types";
 
 const TOKEN_KEY = "rasadbin.token";
 type Handler<T = unknown> = (data: T) => void;
@@ -33,7 +33,7 @@ class WebSocketClient {
     else sessionStorage.removeItem(TOKEN_KEY);
   }
 
-  on<T = unknown>(type: string, fn: Handler<T>): () => void {
+  on<K extends string = string>(type: K, fn: (data: K extends keyof WsMessageMap ? WsMessageMap[K] : unknown) => void): () => void {
     let set = this.handlers.get(type);
     if (!set) {
       set = new Set();
@@ -42,7 +42,7 @@ class WebSocketClient {
     set.add(fn as Handler);
     // Authentication can finish before protected components mount. Replay the
     // latest identity so those components don't miss the one-time ready event.
-    if (type === "ready" && this.ready && this.identity) fn(this.identity as T);
+    if (type === "ready" && this.ready && this.identity) (fn as Handler)(this.identity);
     return () => set!.delete(fn as Handler);
   }
 

@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ws } from "../lib/ws";
-import type { ErrorPayload } from "../lib/types";
-
-interface LoginOk { token: string; username: string; role: string; expires_at: string; }
 
 export default function Login() {
   const nav = useNavigate();
@@ -16,8 +13,8 @@ export default function Login() {
 
   useEffect(() => {
     const offStatus = ws.onStatus(setConnected);
-    const offOk = ws.on<LoginOk>("login_ok", () => nav("/dashboard", { replace: true }));
-    const offFail = ws.on<ErrorPayload>("login_failed", (d) => {
+    const offOk = ws.on("login_ok", () => nav("/dashboard", { replace: true }));
+    const offFail = ws.on("login_failed", (d) => {
       setMsg(d.message || "Sign-in failed. Check your credentials and try again.");
       setBusy(false); setPassword(""); pwRef.current?.focus();
     });

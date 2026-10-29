@@ -30,12 +30,16 @@ type PacketEvent struct {
 }
 
 func (e PacketEvent) String() string {
-	if e.SourcePort != 0 || e.DestinationPort != 0 {
-		return fmt.Sprintf("packet %s %s:%d -> %s:%d (%d bytes, interface=%s)",
-			e.Protocol, e.SourceIP, e.SourcePort, e.DestinationIP, e.DestinationPort, e.Length, e.Interface)
+	flags := ""
+	if e.Protocol == "TCP" && e.TCPFlags != 0 {
+		flags = fmt.Sprintf(" flags=0x%02x", e.TCPFlags)
 	}
-	return fmt.Sprintf("packet %s %s -> %s (%d bytes, interface=%s)",
-		e.Protocol, e.SourceIP, e.DestinationIP, e.Length, e.Interface)
+	if e.SourcePort != 0 || e.DestinationPort != 0 {
+		return fmt.Sprintf("packet %s %s:%d -> %s:%d%s (%d bytes, interface=%s)",
+			e.Protocol, e.SourceIP, e.SourcePort, e.DestinationIP, e.DestinationPort, flags, e.Length, e.Interface)
+	}
+	return fmt.Sprintf("packet %s %s -> %s%s (%d bytes, interface=%s)",
+		e.Protocol, e.SourceIP, e.DestinationIP, flags, e.Length, e.Interface)
 }
 
 type Collector struct {

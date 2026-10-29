@@ -10,7 +10,7 @@ export default function TopBar() {
 
   useEffect(() => {
     const offStatus = ws.onStatus(setConnected);
-    const offIdentity = ws.on<Identity>("ready", setMe);
+    const offIdentity = ws.on("ready", setMe);
 
     const onIdentity = (e: Event) => setMe((e as CustomEvent<Identity>).detail);
     window.addEventListener("rasadbin:identity", onIdentity);

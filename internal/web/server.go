@@ -102,14 +102,18 @@ func New(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("load detection rules: %w", err)
 	}
 
-	return &Server{
+	srv := &Server{
 		hub:          NewHub(cfg.Version, cfg.Commit),
 		auth:         auth,
 		settings:     store,
 		integrations: integrations,
 		static:       static,
 		detection:    engine,
-	}, nil
+	}
+	srv.integrations.notify = func(typ string, data any) {
+		srv.hub.Broadcast(typ, data)
+	}
+	return srv, nil
 }
 
 // SetStore wires the persistent event store (call before Run/Handler).

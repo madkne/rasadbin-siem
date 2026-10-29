@@ -2,12 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import { ws } from "../lib/ws";
-
-type Integration = {
-  id: string; name: string; description: string; category: string;
-  enabled: boolean; collector: string; processor: string;
-  detections: string[]; alerting: boolean; status: string;
-};
+import type { Integration } from "../lib/types";
 const statusText: Record<string,string> = {
   not_configured: "Not enabled",
   disabled: "Disabled",
@@ -21,9 +16,9 @@ export default function Integrations() {
   const [busy,setBusy] = useState<string|null>(null);
   useEffect(()=>{
     const offReady=ws.on("ready",()=>ws.send("integrations.get"));
-    const offList=ws.on<Integration[]>("integrations",setItems);
-    const offSaved=ws.on<Integration>("integration_saved",v=>{setItems(old=>old.map(i=>i.id===v.id?v:i));setBusy(null);});
-    const offErr=ws.on<{for?:string;message:string}>("error",e=>{if(e.for==="integration.update"||e.for==="integrations.get"){setError(e.message);setBusy(null);}});
+    const offList=ws.on("integrations",setItems);
+    const offSaved=ws.on("integration_saved",v=>{setItems(old=>old.map(i=>i.id===v.id?v:i));setBusy(null);});
+    const offErr=ws.on("error",e=>{if(e.for==="integration.update"||e.for==="integrations.get"){setError(e.message);setBusy(null);}});
     if(ws.isReady) ws.send("integrations.get");
     return ()=>{offReady();offList();offSaved();offErr();};
   },[]);

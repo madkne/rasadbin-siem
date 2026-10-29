@@ -444,5 +444,5 @@ func (c *client) handleIntegrationUpdate(raw json.RawMessage, sess *Session) {
 		"user", sess.Username,
 		"ip", c.ip)
 
-	c.sendJSON("integration_saved", item)
+	c.srv.hub.Broadcast("integration_saved", item)
 }

@@ -40,28 +40,24 @@ func encode(typ string, data any) []byte {
 
 // Event is one entry in the dashboard's live feed.
 type Event struct {
-	Time time.Time `json:"time"
-
-	"rasadbin/internal/detection"`
-	Source   string `json:"source"`
-	Severity string `json:"severity"` // info | low | medium | high | critical
-	Message  string `json:"message"`
+	Time     time.Time `json:"time"`
+	Source   string    `json:"source"`
+	Severity string    `json:"severity"` // info | low | medium | high | critical
+	Message  string    `json:"message"`
 }
 
 // Stats is what the dashboard shows.
 type Stats struct {
-	Time time.Time `json:"time"
-
-	"rasadbin/internal/detection"`
-	UptimeSeconds int64   `json:"uptime_seconds"`
-	Version       string  `json:"version"`
-	Commit        string  `json:"commit"`
-	Goroutines    int     `json:"goroutines"`
-	HeapMB        float64 `json:"heap_mb"`
-	SysMB         float64 `json:"sys_mb"`
-	GCCycles      uint32  `json:"gc_cycles"`
-	Clients       int     `json:"clients"`
-	EventsTotal   uint64  `json:"events_total"`
+	Time          time.Time `json:"time"`
+	UptimeSeconds int64     `json:"uptime_seconds"`
+	Version       string    `json:"version"`
+	Commit        string    `json:"commit"`
+	Goroutines    int       `json:"goroutines"`
+	HeapMB        float64   `json:"heap_mb"`
+	SysMB         float64   `json:"sys_mb"`
+	GCCycles      uint32    `json:"gc_cycles"`
+	Clients       int       `json:"clients"`
+	EventsTotal   uint64    `json:"events_total"`
 }
 
 // Hub tracks connected clients and fans data out to them.
@@ -200,7 +196,20 @@ func (h *Hub) drainStore(timeout time.Duration) {
 	}
 }
 
-// Recent returns the buffered events, oldest first.
+// Broadcast sends a message to every connected client, regardless of
+// dashboard subscription state. Used for control-plane updates (integrations).
+func (h *Hub) Broadcast(typ string, data any) {
+	b := encode(typ, data)
+	h.mu.RLock()
+	clients := make([]*client, 0, len(h.clients))
+	for c := range h.clients {
+		clients = append(clients, c)
+	}
+	h.mu.RUnlock()
+	for _, c := range clients {
+		c.enqueue(b)
+	}
+}
 func (h *Hub) Recent() []Event {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
