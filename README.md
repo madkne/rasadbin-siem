@@ -472,3 +472,17 @@ Add a `LICENSE` file before publishing a release or distributing the software. D
 Rasadbin is an early-stage security monitoring project. It is not yet a replacement for a mature production SIEM, endpoint detection platform, or network intrusion detection system.
 
 Use it initially in a controlled development or test environment. Validate detection coverage, event loss, access controls, and recovery behavior before relying on it for security-critical monitoring.
+
+
+## Built-in integration control plane
+
+The Web UI includes an admin-only **Integrations** page. Built-in source definitions are persisted in `DATA_DIR/integrations.json` and can be enabled/disabled independently:
+
+- Network packets — packet/flow normalization and network-oriented detection packs.
+- systemd journal — journal field normalization and host/auth/service detection packs.
+- Syslog files — syslog parsing and SSH/sudo/kernel detection packs.
+- Service logs — service-specific parser adapters and service-health detection packs.
+
+Each integration exposes its collector, processor, detections, alerting switch, and a dedicated workspace route (`/integrations/<id>`). The WebSocket control messages are `integrations.get`, `integration.update`, and `integration.events`.
+
+**Implementation status:** this change implements the persisted integration registry, admin controls, source routing seam, and integration-specific UI workspaces. It does not claim that packet capture, journal following, or file-tail collectors are running yet: the UI explicitly reports that collector adapters are pending. Those adapters must implement the collector lifecycle and report health before these integrations can be considered operational. Enabling an integration does not grant Linux capabilities or bypass filesystem/journald permissions.

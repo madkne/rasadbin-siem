@@ -1,14 +1,18 @@
+
 import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import RequireAuth from "./components/RequireAuth";
+import Integrations from "./pages/Integrations";
+import IntegrationWorkspace from "./pages/IntegrationWorkspace";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<Login />} />
+
       <Route
         path="/dashboard"
         element={
@@ -17,6 +21,7 @@ export default function App() {
           </RequireAuth>
         }
       />
+
       <Route
         path="/settings"
         element={
@@ -25,6 +30,27 @@ export default function App() {
           </RequireAuth>
         }
       />
+
+      {/* Integration management: administrators only */}
+      <Route
+        path="/integrations"
+        element={
+          <RequireAuth requireAdmin>
+            <Integrations />
+          </RequireAuth>
+        }
+      />
+
+      {/* Individual integration workspace */}
+      <Route
+        path="/integrations/:id"
+        element={
+          <RequireAuth>
+            <IntegrationWorkspace />
+          </RequireAuth>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

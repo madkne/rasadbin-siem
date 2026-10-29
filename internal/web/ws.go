@@ -205,6 +205,37 @@ func (c *client) dispatch(env envelope) {
 	case "unsubscribe":
 		c.subscribed.Store(false)
 
+	case "integrations.get":
+		if c.requireAdmin(env.Type, sess) {
+			c.sendJSON("integrations", c.srv.Integrations())
+		}
+
+	case "integration.update":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleIntegrationUpdate(env.Data, sess)
+		}
+
+	case "integration.events":
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := decodeStrict(env.Data, &req); err != nil {
+			c.sendError(env.Type, "invalid integration id")
+			break
+		}
+		if _, ok := c.srv.integrations.Get(req.ID); !ok {
+			c.sendError(env.Type, "unknown integration")
+			break
+		}
+		events := c.srv.hub.Recent()
+		filtered := make([]Event, 0)
+		for _, e := range events {
+			if e.Source == req.ID {
+				filtered = append(filtered, e)
+			}
+		}
+		c.sendJSON("integration.events", map[string]any{"id": req.ID, "events": filtered})
+
 	case "settings.get":
 		if c.requireAdmin(env.Type, sess) {
 			c.sendJSON("settings", c.srv.settings.Get())
@@ -333,4 +364,23 @@ func (c *client) handlePasswordChange(raw json.RawMessage, sess *Session) {
 		c.subscribed.Store(false)
 		c.sendJSON("password_changed", nil)
 	}
+}
+
+func (c *client) handleIntegrationUpdate(raw json.RawMessage, sess *Session) {
+	var req struct {
+		ID       string `json:"id"`
+		Enabled  bool   `json:"enabled"`
+		Alerting bool   `json:"alerting"`
+	}
+	if err := decodeStrict(raw, &req); err != nil || req.ID == "" {
+		c.sendError("integration.update", "invalid integration payload")
+		return
+	}
+	item, err := c.srv.integrations.Update(req.ID, req.Enabled, req.Alerting)
+	if err != nil {
+		c.sendError("integration.update", err.Error())
+		return
+	}
+	slog.Info("audit", "action", "integration.update", "integration", req.ID, "enabled", req.Enabled, "user", sess.Username, "ip", c.ip)
+	c.sendJSON("integration_saved", item)
 }

@@ -31,6 +31,7 @@ export default function TopBar() {
         <Link to="/dashboard" className={pathname === "/dashboard" ? "active" : ""}>
           Dashboard
         </Link>
+        {me?.role === "admin" && <Link to="/integrations" className={pathname.startsWith("/integrations") ? "active" : ""}>Integrations</Link>}
         {me?.role === "admin" && (
           <Link to="/settings" className={pathname === "/settings" ? "active" : ""}>
             Settings

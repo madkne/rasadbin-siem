@@ -25,10 +25,11 @@ type Config struct {
 
 // Server is the web UI: pages, static assets and the WebSocket hub.
 type Server struct {
-	hub      *Hub
-	auth     *Auth
-	settings *SettingsStore
-	static   fs.FS
+	hub          *Hub
+	auth         *Auth
+	settings     *SettingsStore
+	integrations *IntegrationStore
+	static       fs.FS
 }
 
 // New builds the web UI server.
@@ -50,6 +51,11 @@ func New(cfg Config) (*Server, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("load settings: %w", err)
+	}
+
+	integrations, err := LoadIntegrationStore(cfg.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("load integrations: %w", err)
 	}
 
 	password := cfg.AdminPassword
@@ -79,10 +85,11 @@ func New(cfg Config) (*Server, error) {
 	}
 
 	return &Server{
-		hub:      NewHub(cfg.Version, cfg.Commit),
-		auth:     auth,
-		settings: store,
-		static:   static,
+		hub:          NewHub(cfg.Version, cfg.Commit),
+		auth:         auth,
+		settings:     store,
+		integrations: integrations,
+		static:       static,
 	}, nil
 }
 
@@ -94,7 +101,14 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 // Publish adds an event to the dashboard's live feed. Collectors call this.
-func (s *Server) Publish(e Event) { s.hub.Publish(e) }
+func (s *Server) Publish(e Event) {
+	if processed, ok := s.integrations.ProcessEvent(e); ok {
+		s.hub.Publish(processed)
+	}
+}
+
+// Integrations returns a snapshot of built-in integration configuration.
+func (s *Server) Integrations() []Integration { return s.integrations.List() }
 
 // Handler returns the page, static asset and WebSocket routes.
 //
@@ -109,7 +123,7 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	index := s.page()
-	for _, name := range []string{"login", "dashboard", "settings"} {
+	for _, name := range []string{"login", "dashboard", "settings", "integrations", "events", "alerts", "network", "systemd", "syslog", "services"} {
 		mux.HandleFunc("GET /"+name, index)
 	}
 
