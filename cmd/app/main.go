@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"rasadbin/internal/config"
 	"rasadbin/internal/web"
 )
 
@@ -71,32 +71,9 @@ func execute(args []string) int {
 }
 
 func runCommand(args []string) error {
-	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-
-	listenAddr := fs.String(
-		"listen",
-		"127.0.0.1:8080",
-		"HTTP listen address",
-	)
-	dataDir := fs.String(
-		"data-dir",
-		"./data",
-		"directory for persisted settings",
-	)
-
-	webUIDir := fs.String("webui-dir", "webui/dist", "path to built web UI assets")
-
-	if err := fs.Parse(args); err != nil {
+	cfg, err := config.Load(args)
+	if err != nil {
 		return err
-	}
-
-	if fs.NArg() != 0 {
-		return fmt.Errorf("unexpected arguments: %v", fs.Args())
-	}
-
-	if *listenAddr == "" {
-		return errors.New("listen address cannot be empty")
 	}
 
 	// TODO: Load and validate application configuration.
@@ -130,17 +107,20 @@ func runCommand(args []string) error {
 	defer stop()
 
 	ui, err := web.New(web.Config{
-		DataDir:       *dataDir,
-		AdminPassword: os.Getenv("RASADBIN_ADMIN_PASSWORD"),
+		DataDir:       cfg.DataDir,
+		AdminPassword: cfg.AdminPassword,
 		Version:       APP_VERSION,
 		Commit:        commit,
 		LogLevel:      logLevel,
-		WebUIDir:      *webUIDir,
+		WebUIDir:      cfg.WebUIDir,
 	})
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
 	}
 	go ui.Run(ctx)
+	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterface); err != nil {
+		slog.Warn("network packet capture unavailable", "error", err)
+	}
 
 	mux := http.NewServeMux()
 
@@ -165,7 +145,7 @@ func runCommand(args []string) error {
 	// dashboard's live event list.
 
 	server := &http.Server{
-		Addr:              *listenAddr,
+		Addr:              cfg.ListenAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -182,7 +162,7 @@ func runCommand(args []string) error {
 			"service", APP_NAME,
 			"version", APP_VERSION,
 			"commit", commit,
-			"address", *listenAddr,
+			"address", cfg.ListenAddr,
 		)
 
 		err := server.ListenAndServe()
@@ -235,24 +215,16 @@ func runCommand(args []string) error {
 func printUsage() {
 	fmt.Printf(`%[1]s %[2]s
 
-Usage:
-  %[3]s <command> [options]
+Run options (values usually come from .env; flags override):
+  --listen            HTTP listen address (env HTTP_HOST/HTTP_PORT, default 127.0.0.1:8080)
+  --data-dir          Directory for persisted settings (env DATA_DIR, default ./data)
+  --webui-dir         Path to built web UI assets (env WEBUI_DIR, default webui/dist)
+  --capture-interface Linux interface for packet capture (env CAPTURE_INTERFACE)
 
-Commands:
-  run       Start the SIEM service
-  version   Print version information
-  help      Show this help
+Environment file:
+  ENV_FILE   Path to .env (default ./.env; missing file is OK)
 
-Run options:
-  --listen    HTTP listen address (default: 127.0.0.1:8080)
-  --data-dir  Directory for persisted settings (default: ./data)
-
-Environment:
-  RASADBIN_ADMIN_PASSWORD  Admin password (random one is printed if unset)
-
-Examples:
-  %[3]s run
-  %[3]s run --listen 127.0.0.1:9090
-  %[3]s version
+Environment (.env or real env):
+  HTTP_HOST, HTTP_PORT, DATA_DIR, WEBUI_DIR, ADMIN_PASSWORD, CAPTURE_INTERFACE
 `, APP_NAME, APP_VERSION, APP_COMMAND_NAME)
 }

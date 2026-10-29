@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"rasadbin/internal/collector/network"
 )
 
 // Config configures the web UI.
@@ -25,11 +27,12 @@ type Config struct {
 
 // Server is the web UI: pages, static assets and the WebSocket hub.
 type Server struct {
-	hub          *Hub
-	auth         *Auth
-	settings     *SettingsStore
-	integrations *IntegrationStore
-	static       fs.FS
+	hub            *Hub
+	auth           *Auth
+	settings       *SettingsStore
+	integrations   *IntegrationStore
+	static         fs.FS
+	networkCapture *network.Collector
 }
 
 // New builds the web UI server.
@@ -174,4 +177,34 @@ func parseLevel(s string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+// StartNetworkCapture starts the Linux packet collector when explicitly enabled.
+// The caller should invoke this once after constructing the server. Capture needs
+// CAP_NET_RAW/root and is intentionally not started implicitly by New().
+func (s *Server) StartNetworkCapture(ctx context.Context, iface string) error {
+	if item, ok := s.integrations.Get("network-packets"); !ok || !item.Enabled {
+		return nil
+	}
+	c, err := network.New(iface, func(e network.PacketEvent) {
+		s.Publish(Event{
+			Time:     e.Time,
+			Source:   "network-packets",
+			Severity: "info",
+			Message:  e.String(),
+		})
+	})
+	if err != nil {
+		s.Publish(Event{Source: "network-packets", Severity: "high", Message: "packet capture failed to start: " + err.Error()})
+		return err
+	}
+	s.networkCapture = c
+	go func() {
+		if err := c.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("network packet collector stopped", "error", err, "interface", iface)
+			s.Publish(Event{Source: "network-packets", Severity: "high", Message: "packet capture stopped: " + err.Error()})
+		}
+	}()
+	slog.Info("network packet collector started", "interface", c.Interface())
+	return nil
 }
