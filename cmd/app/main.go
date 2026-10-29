@@ -1,3 +1,4 @@
+// <file path="cmd/app/main.go">
 package main
 
 import (
@@ -98,6 +99,8 @@ func runCommand(args []string) error {
 		},
 	))
 	slog.SetDefault(logger)
+
+	printWelcome(cfg)
 
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -210,6 +213,41 @@ func runCommand(args []string) error {
 
 	slog.Info("shutdown completed")
 	return nil
+}
+
+func printWelcome(cfg config.Config) {
+	uiURL := "http://" + cfg.ListenAddr
+
+	fmt.Println()
+
+	fmt.Printf("  %s v%s (%s) — Linux-first SIEM\n", APP_NAME, APP_VERSION, commit)
+	fmt.Println()
+	fmt.Println("  ─────────────────────────────────────────────────────────────")
+	fmt.Println()
+	fmt.Printf("  Web UI        %s\n", uiURL)
+	fmt.Printf("  Health check  %s/healthz\n", uiURL)
+	fmt.Printf("  WebSocket     ws://%s/ws\n", cfg.ListenAddr)
+	fmt.Printf("  Data dir      %s\n", cfg.DataDir)
+	fmt.Printf("  Env file      %s\n", cfg.EnvFile)
+	if cfg.CaptureInterface != "" {
+		fmt.Printf("  Capture iface %s\n", cfg.CaptureInterface)
+	}
+	fmt.Println()
+	fmt.Println("  ─────────────────────────────────────────────────────────────")
+	fmt.Println()
+	fmt.Println("  Quick start:")
+	fmt.Printf("    1. Open %s in your browser\n", uiURL)
+	fmt.Println("    2. Sign in with the admin credentials")
+	fmt.Println("    3. Enable integrations under Integrations")
+	fmt.Println()
+	fmt.Println("  Notes:")
+	fmt.Println("    • The admin password is printed to stderr if ADMIN_PASSWORD is unset.")
+	fmt.Println("    • Network capture requires CAP_NET_RAW / root and a Linux host.")
+	fmt.Println("    • Integration collectors are pending; the UI reports their status.")
+	fmt.Println("    • Bind to 127.0.0.1 by default. Do not expose without TLS + auth.")
+	fmt.Println()
+	fmt.Println("  Press Ctrl+C to stop.")
+	fmt.Println()
 }
 
 func printUsage() {
