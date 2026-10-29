@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,12 @@ type message struct {
 type errorData struct {
 	For     string `json:"for,omitempty"`
 	Message string `json:"message"`
+}
+
+// EventQuerier is the read side of the persistence seam. internal/storage
+// implements it alongside EventStore.
+type EventQuerier interface {
+	Query(ctx context.Context, q SearchQuery) (SearchResult, error)
 }
 
 func encode(typ string, data any) []byte {
@@ -57,10 +64,19 @@ type Hub struct {
 	clients map[*client]struct{}
 	recent  []Event
 
+	store   EventStore // nil = memory-only (tests, no DB)
+	storeCh chan Event
+	dropped atomic.Uint64
+
 	started     time.Time
 	version     string
 	commit      string
 	eventsTotal atomic.Uint64
+}
+
+// EventStore is the persistence seam. internal/storage implements it.
+type EventStore interface {
+	Append(ctx context.Context, e Event) error
 }
 
 func NewHub(version, commit string) *Hub {
@@ -72,6 +88,16 @@ func NewHub(version, commit string) *Hub {
 	}
 }
 
+// SetStore attaches a persistent event store. Events published after this
+// call are queued for storage by the storeWriter goroutine started in Run.
+func (h *Hub) SetStore(store EventStore) {
+	h.mu.Lock()
+	h.store = store
+	if store != nil && h.storeCh == nil {
+		h.storeCh = make(chan Event, 1024)
+	}
+	h.mu.Unlock()
+}
 func (h *Hub) add(c *client) {
 	h.mu.Lock()
 	h.clients[c] = struct{}{}
@@ -116,6 +142,36 @@ func (h *Hub) Publish(e Event) {
 	for _, c := range h.subscribers() {
 		c.enqueue(b)
 	}
+	h.mu.RLock()
+	store := h.store
+	ch := h.storeCh
+	h.mu.RUnlock()
+	if store != nil && ch != nil {
+		select {
+		case ch <- e:
+		default:
+			h.dropped.Add(1)
+		}
+	}
+}
+func (h *Hub) drainStore(timeout time.Duration) {
+	h.mu.RLock()
+	ch := h.storeCh
+	h.mu.RUnlock()
+	if ch == nil {
+		return
+	}
+	deadline := time.After(timeout)
+	for {
+		if len(ch) == 0 {
+			return
+		}
+		select {
+		case <-deadline:
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 }
 
 // Recent returns the buffered events, oldest first.
@@ -159,7 +215,9 @@ func (h *Hub) Snapshot() Stats {
 func (h *Hub) Run(ctx context.Context, refresh func() time.Duration, auth *Auth) {
 	timer := time.NewTimer(refresh())
 	defer timer.Stop()
-
+	if h.store != nil {
+		go h.storeWriter(ctx)
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -171,7 +229,20 @@ func (h *Hub) Run(ctx context.Context, refresh func() time.Duration, auth *Auth)
 		}
 	}
 }
-
+func (h *Hub) storeWriter(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case e := <-h.storeCh:
+			wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			if err := h.store.Append(wctx, e); err != nil {
+				slog.Error("persist event failed", "error", err)
+			}
+			cancel()
+		}
+	}
+}
 func (h *Hub) pushStats() {
 	subs := h.subscribers()
 	if len(subs) == 0 {

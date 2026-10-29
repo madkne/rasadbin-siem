@@ -47,7 +47,9 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conn.SetReadLimit(readLimit)
-
+	if s.baseCtx == nil {
+		s.baseCtx = context.Background()
+	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -221,7 +223,17 @@ func (c *client) dispatch(env envelope) {
 			c.sendError(env.Type, "invalid search query")
 			break
 		}
-		c.sendJSON("discover.results", c.srv.hub.Search(q))
+		if c.srv.store != nil {
+			res, err := c.srv.store.Query(c.srv.baseCtx, q)
+			if err != nil {
+				slog.Error("discover query", "error", err)
+				c.sendError(env.Type, "query failed")
+				break
+			}
+			c.sendJSON("discover.results", res)
+		} else {
+			c.sendJSON("discover.results", c.srv.hub.Search(q))
+		}
 
 	case "discover.sources":
 		// Distinct source IDs present in the retained buffer, for filter chips.

@@ -13,16 +13,9 @@ import (
 	"time"
 
 	"rasadbin/internal/config"
+	"rasadbin/internal/storage"
 	"rasadbin/internal/web"
 )
-
-// TODO: Replace these constants with build-time values.
-// Example:
-//
-// go build -ldflags "-X main.appVersion=0.2.0"
-//
-// appVersion must be a variable if it is to be overridden
-// using -ldflags.
 
 func main() {
 	os.Exit(execute(os.Args[1:]))
@@ -120,6 +113,12 @@ func runCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
 	}
+	store, err := storage.Open(cfg.DB)
+	if err != nil {
+		return fmt.Errorf("open event store: %w", err)
+	}
+	defer store.Close()
+	ui.SetStore(ctx, store, store)
 	go ui.Run(ctx)
 	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterfaces); err != nil {
 		slog.Warn("network packet capture unavailable", "error", err)
@@ -207,6 +206,12 @@ func runCommand(args []string) error {
 		return err
 	}
 
+	// Let the hub drain queued writes before closing SQLite.
+	ui.DrainStore(5 * time.Second)
+	if err := store.Close(); err != nil {
+		slog.Warn("closing event store", "error", err)
+	}
+
 	// TODO: Stop collectors before closing the event pipeline.
 	// TODO: Drain bounded queues within a configurable timeout.
 	// TODO: Flush alerts and close the storage backend.
@@ -229,6 +234,8 @@ func printWelcome(cfg config.Config) {
 	fmt.Printf("  WebSocket     ws://%s/ws\n", cfg.ListenAddr)
 	fmt.Printf("  Data dir      %s\n", cfg.DataDir)
 	fmt.Printf("  Env file      %s\n", cfg.EnvFile)
+	fmt.Printf("  Database      %s (%s)\n", cfg.DB.Driver, cfg.DB.DSN)
+
 	if len(cfg.CaptureInterfaces) > 0 {
 		fmt.Printf("  Capture iface %s\n", cfg.CaptureInterfaces)
 	}

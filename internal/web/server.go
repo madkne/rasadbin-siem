@@ -32,6 +32,8 @@ type Server struct {
 	settings        *SettingsStore
 	integrations    *IntegrationStore
 	static          fs.FS
+	store           EventQuerier
+	baseCtx         context.Context
 	networkCaptures []*network.Collector
 }
 
@@ -94,6 +96,20 @@ func New(cfg Config) (*Server, error) {
 		integrations: integrations,
 		static:       static,
 	}, nil
+}
+
+// SetStore wires the persistent event store (call before Run/Handler).
+func (s *Server) SetStore(ctx context.Context, q EventQuerier, app EventStore) {
+	s.baseCtx = ctx
+	s.store = q
+	if app != nil {
+		s.hub.SetStore(app)
+	}
+}
+
+// DrainStore waits up to timeout for queued events to be persisted.
+func (s *Server) DrainStore(timeout time.Duration) {
+	s.hub.drainStore(timeout)
 }
 
 // Run drives periodic dashboard pushes until ctx is cancelled.

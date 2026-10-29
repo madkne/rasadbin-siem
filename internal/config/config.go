@@ -15,8 +15,21 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 )
+
+// DBConfig is the resolved database configuration.
+type DBConfig struct {
+	Driver          string // sqlite | postgres | mysql
+	DSN             string // driver-specific DSN / file path
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	LogLevel        string // silent | error | warn | info
+
+}
 
 // Config is the immutable process configuration resolved at startup.
 type Config struct {
@@ -26,6 +39,7 @@ type Config struct {
 	AdminPassword     string
 	CaptureInterfaces []string // empty = collector default
 	EnvFile           string   // path actually loaded, for logging
+	DB                DBConfig
 }
 
 // Load resolves configuration from .env, the environment and args.
@@ -52,6 +66,12 @@ func Load(args []string) (Config, error) {
 	captureInterface := fs.String("capture-interface", os.Getenv("CAPTURE_INTERFACE"),
 		"Linux interface for packet capture (overrides CAPTURE_INTERFACE)")
 
+	dbDriver := fs.String("db-driver", envOr("DB_DRIVER", "sqlite"),
+		"database driver: sqlite|postgres|mysql (overrides DB_DRIVER)")
+	dbDSN := fs.String("db-dsn", os.Getenv("DB_DSN"),
+		"database DSN; sqlite defaults to DATA_DIR/rasadbin.db (overrides DB_DSN)")
+	dbLogLevel := fs.String("db-log-level", envOr("DB_LOG_LEVEL", "warn"),
+		"gorm log level: silent|error|warn|info (overrides DB_LOG_LEVEL)")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -59,6 +79,21 @@ func Load(args []string) (Config, error) {
 		return Config{}, fmt.Errorf("unexpected arguments: %v", fs.Args())
 	}
 
+	dsn := strings.TrimSpace(*dbDSN)
+	if strings.EqualFold(*dbDriver, "sqlite") && dsn == "" {
+		dsn = filepath.Join(strings.TrimSpace(*dataDir), "rasadbin.db")
+	}
+	if strings.EqualFold(*dbDriver, "sqlite") && !filepath.IsAbs(dsn) && !strings.HasPrefix(dsn, ".") {
+		// keep relative-to-cwd DSNs as-is; only join DATA_DIR when clearly a bare filename
+	}
+	db := DBConfig{
+		Driver:          strings.ToLower(strings.TrimSpace(*dbDriver)),
+		DSN:             dsn,
+		MaxOpenConns:    envInt("DB_MAX_OPEN_CONNS", 10),
+		MaxIdleConns:    envInt("DB_MAX_IDLE_CONNS", 5),
+		ConnMaxLifetime: envDuration("DB_CONN_MAX_LIFETIME", time.Hour),
+		LogLevel:        strings.ToLower(strings.TrimSpace(*dbLogLevel)),
+	}
 	cfg := Config{
 		ListenAddr:        strings.TrimSpace(*listenAddr),
 		DataDir:           strings.TrimSpace(*dataDir),
@@ -66,6 +101,7 @@ func Load(args []string) (Config, error) {
 		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
 		CaptureInterfaces: splitInterfaces(*captureInterface),
 		EnvFile:           envFile,
+		DB:                db,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -84,31 +120,18 @@ func (c Config) Validate() error {
 	if c.WebUIDir == "" {
 		return errors.New("web UI directory cannot be empty (set WEBUI_DIR or --webui-dir)")
 	}
+	switch c.DB.Driver {
+	case "sqlite", "postgres", "mysql":
+	default:
+		return fmt.Errorf("unsupported DB_DRIVER %q (want sqlite, postgres or mysql)", c.DB.Driver)
+	}
+	if c.DB.DSN == "" {
+		return errors.New("database DSN is empty (set DB_DSN)")
+	}
+	switch c.DB.LogLevel {
+	case "silent", "error", "warn", "info":
+	default:
+		return errors.New("DB_LOG_LEVEL must be silent, error, warn or info")
+	}
 	return nil
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-// splitInterfaces turns "eth0,enp0s31f6" or "*" into a list.
-// "*" and "any" both mean "all interfaces" (a single unbind-ed capture).
-func splitInterfaces(raw string) []string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil
-	}
-	if raw == "*" || raw == "any" {
-		return []string{"any"}
-	}
-	var out []string
-	for _, p := range strings.Split(raw, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }
