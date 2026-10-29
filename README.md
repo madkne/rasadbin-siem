@@ -55,6 +55,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [x] Authentication, authorization, and administrative audit logging (in-memory users).
 - [x] Admin settings page (instance name, log level, session timeout, retention, refresh interval).
 - [x] Built-in integration control plane with enable/disable and alerting toggles.
+- [x] Discover-style log explorer with time range, severity, source filters and a histogram.
 
 ### Operations
 

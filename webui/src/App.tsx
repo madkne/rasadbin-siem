@@ -1,4 +1,3 @@
-
 import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -6,6 +5,7 @@ import Settings from "./pages/Settings";
 import RequireAuth from "./components/RequireAuth";
 import Integrations from "./pages/Integrations";
 import IntegrationWorkspace from "./pages/IntegrationWorkspace";
+import Discover from "./pages/Discover";
 
 export default function App() {
   return (
@@ -47,6 +47,15 @@ export default function App() {
         element={
           <RequireAuth>
             <IntegrationWorkspace />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/discover"
+        element={
+          <RequireAuth>
+            <Discover />
           </RequireAuth>
         }
       />

@@ -56,3 +56,24 @@ export interface Envelope<T = unknown> {
   type: string;
   data?: T;
 }
+export interface SearchQuery {
+  query?: string;
+  severity?: string;
+  sources?: string[];
+  from?: string; // RFC3339
+  to?: string;
+  limit?: number;
+  sort_desc?: boolean;
+}
+
+export interface HistogramBucket {
+  time: string;
+  count: number;
+}
+
+export interface SearchResult {
+  events: EventEntry[];
+  total: number;
+  buckets: HistogramBucket[] | null;
+  took_ms: number;
+}

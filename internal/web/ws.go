@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -214,7 +215,26 @@ func (c *client) dispatch(env envelope) {
 		if c.requireAdmin(env.Type, sess) {
 			c.handleIntegrationUpdate(env.Data, sess)
 		}
+	case "discover.search":
+		var q SearchQuery
+		if err := decodeStrict(env.Data, &q); err != nil {
+			c.sendError(env.Type, "invalid search query")
+			break
+		}
+		c.sendJSON("discover.results", c.srv.hub.Search(q))
 
+	case "discover.sources":
+		// Distinct source IDs present in the retained buffer, for filter chips.
+		seen := map[string]struct{}{}
+		for _, e := range c.srv.hub.Recent() {
+			seen[e.Source] = struct{}{}
+		}
+		sources := make([]string, 0, len(seen))
+		for s := range seen {
+			sources = append(sources, s)
+		}
+		sort.Strings(sources)
+		c.sendJSON("discover.sources", sources)
 	case "integration.events":
 		var req struct {
 			ID string `json:"id"`

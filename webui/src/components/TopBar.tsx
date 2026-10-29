@@ -28,12 +28,32 @@ export default function TopBar() {
     <header className="topbar">
       <span className="brand">{brand}</span>
       <nav>
-        <Link to="/dashboard" className={pathname === "/dashboard" ? "active" : ""}>
+        <Link
+          to="/dashboard"
+          className={pathname === "/dashboard" ? "active" : ""}
+        >
           Dashboard
         </Link>
-        {me?.role === "admin" && <Link to="/integrations" className={pathname.startsWith("/integrations") ? "active" : ""}>Integrations</Link>}
+        <Link
+          to="/discover"
+          className={pathname === "/discover" ? "active" : ""}
+        >
+          Discover
+        </Link>
         {me?.role === "admin" && (
-          <Link to="/settings" className={pathname === "/settings" ? "active" : ""}>
+          <Link
+            to="/integrations"
+            className={pathname.startsWith("/integrations") ? "active" : ""}
+          >
+            Integrations
+          </Link>
+        )}
+
+        {me?.role === "admin" && (
+          <Link
+            to="/settings"
+            className={pathname === "/settings" ? "active" : ""}
+          >
             Settings
           </Link>
         )}
@@ -41,11 +61,13 @@ export default function TopBar() {
       <span className="spacer" />
       <span
         className={`dot${connected ? " on" : ""}`}
-        title={connected ? "WebSocket connected" : "WebSocket disconnected"} role="status" aria-label={connected ? "WebSocket connected" : "WebSocket disconnected"}
+        title={connected ? "WebSocket connected" : "WebSocket disconnected"}
+        role="status"
+        aria-label={
+          connected ? "WebSocket connected" : "WebSocket disconnected"
+        }
       />
-      <span className="muted">
-        {me ? `${me.username} (${me.role})` : ""}
-      </span>
+      <span className="muted">{me ? `${me.username} (${me.role})` : ""}</span>
       <button className="ghost" type="button" onClick={() => ws.send("logout")}>
         Sign out
       </button>
