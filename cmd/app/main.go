@@ -13,11 +13,6 @@ import (
 	"time"
 )
 
-const (
-	appName    = "Rasadbin"
-	appVersion = "0.1.0"
-)
-
 // TODO: Replace these constants with build-time values.
 // Example:
 //
@@ -25,9 +20,6 @@ const (
 //
 // appVersion must be a variable if it is to be overridden
 // using -ldflags.
-var (
-	version = appVersion
-)
 
 func main() {
 	os.Exit(execute(os.Args[1:]))
@@ -48,7 +40,7 @@ func execute(args []string) int {
 		return 0
 
 	case "version":
-		fmt.Printf("%s %s\n", appName, version)
+		fmt.Printf("%s %s (%s)\n", APP_NAME, APP_VERSION, commit)
 		return 0
 
 	case "help", "-h", "--help":
@@ -134,8 +126,8 @@ func runCommand(args []string) error {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(
-			`{"status":"ok","service":"sentinel","version":"` +
-				version + `"}` + "\n",
+			`{"status":"ok","service":"` + APP_COMMAND_NAME + `","version":"` +
+				APP_VERSION + `"}` + "\n",
 		))
 	})
 
@@ -163,8 +155,9 @@ func runCommand(args []string) error {
 	go func() {
 		slog.Info(
 			"starting HTTP server",
-			"service", appName,
-			"version", version,
+			"service", APP_NAME,
+			"version", APP_VERSION,
+			"commit", commit,
 			"address", *listenAddr,
 		)
 
@@ -219,7 +212,7 @@ func printUsage() {
 	fmt.Printf(`%s %s
 
 Usage:
-  sentinel <command> [options]
+  %s <command> [options]
 
 Commands:
   run       Start the SIEM service
@@ -230,8 +223,8 @@ Run options:
   --listen  HTTP listen address (default: 127.0.0.1:8080)
 
 Examples:
-  sentinel run
-  sentinel run --listen 127.0.0.1:9090
-  sentinel version
-`, appName, version)
+  %s run
+  %s run --listen 127.0.0.1:9090
+  %s version
+`, APP_NAME, APP_VERSION, APP_COMMAND_NAME)
 }

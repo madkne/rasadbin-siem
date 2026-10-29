@@ -9,6 +9,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 ## Features and Roadmap
 
 ### Data Collection
+
 - [ ] Live network packet capture on Linux network interfaces.
 - [ ] TCP and UDP flow metadata extraction.
 - [ ] Offline PCAP processing for testing and investigation.
@@ -19,6 +20,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [ ] Configurable collection sources and filters.
 
 ### Event Processing
+
 - [ ] Common event schema for all collection sources.
 - [ ] Event normalization and validation.
 - [ ] Host, process, user, and network context enrichment.
@@ -28,6 +30,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [ ] Event correlation across multiple data sources.
 
 ### Detection and Alerting
+
 - [ ] Configurable detection rules using YAML or JSON.
 - [ ] Time-window-based event aggregation.
 - [ ] Threshold-based detection.
@@ -40,6 +43,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [ ] Future support for a compatible subset of Sigma rules.
 
 ### Web Interface and API
+
 - [ ] Security overview dashboard.
 - [ ] Searchable event explorer.
 - [ ] Alert and incident management.
@@ -51,6 +55,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [ ] Authentication, authorization, and administrative audit logging.
 
 ### Operations
+
 - [ ] Linux service integration using systemd.
 - [ ] Configuration validation and diagnostics.
 - [ ] Health and readiness endpoints.
@@ -99,33 +104,33 @@ Rasadbin follows a modular monolithic architecture. Collection, processing, dete
 
 ### Core Components
 
-| Component | Responsibility |
-|---|---|
-| Network Collector | Captures packets and extracts network metadata. |
-| System Collector | Reads operating system and authentication events. |
-| Service Log Collector | Reads and parses application and service logs. |
-| Event Pipeline | Normalizes, enriches, and routes events. |
-| Detection Engine | Evaluates rules and identifies suspicious behavior. |
-| Alert Manager | Creates, deduplicates, and tracks security alerts. |
-| Storage Layer | Persists events, configuration, rules, and investigation data. |
-| REST API | Exposes event search, management, and monitoring endpoints. |
-| Web Interface | Provides centralized security visibility and investigation tools. |
+| Component             | Responsibility                                                    |
+| --------------------- | ----------------------------------------------------------------- |
+| Network Collector     | Captures packets and extracts network metadata.                   |
+| System Collector      | Reads operating system and authentication events.                 |
+| Service Log Collector | Reads and parses application and service logs.                    |
+| Event Pipeline        | Normalizes, enriches, and routes events.                          |
+| Detection Engine      | Evaluates rules and identifies suspicious behavior.               |
+| Alert Manager         | Creates, deduplicates, and tracks security alerts.                |
+| Storage Layer         | Persists events, configuration, rules, and investigation data.    |
+| REST API              | Exposes event search, management, and monitoring endpoints.       |
+| Web Interface         | Provides centralized security visibility and investigation tools. |
 
 ## Technology Stack
 
-| Area | Technology |
-|---|---|
-| Backend | Go |
-| HTTP API | Go `net/http`, with `chi` as an optional router |
-| Network Capture | `gopacket`, libpcap, and potentially Linux AF_PACKET |
-| System Logs | systemd journal APIs and Linux logging facilities |
-| Initial Storage | SQLite |
-| Full-Text Search | SQLite FTS5 |
-| Frontend | React, TypeScript, and Vite |
-| Live Updates | Server-Sent Events (SSE) |
-| Configuration | YAML or environment-based configuration |
-| Service Management | systemd |
-| Testing | Go testing, integration tests, and traffic replay |
+| Area               | Technology                                           |
+| ------------------ | ---------------------------------------------------- |
+| Backend            | Go                                                   |
+| HTTP API           | Go `net/http`, with `chi` as an optional router      |
+| Network Capture    | `gopacket`, libpcap, and potentially Linux AF_PACKET |
+| System Logs        | systemd journal APIs and Linux logging facilities    |
+| Initial Storage    | SQLite                                               |
+| Full-Text Search   | SQLite FTS5                                          |
+| Frontend           | React, TypeScript, and Vite                          |
+| Live Updates       | Server-Sent Events (SSE)                             |
+| Configuration      | YAML or environment-based configuration              |
+| Service Management | systemd                                              |
+| Testing            | Go testing, integration tests, and traffic replay    |
 
 The storage layer is intended to be replaceable. PostgreSQL or ClickHouse may be considered later if workload measurements show that the initial SQLite implementation is insufficient.
 
@@ -166,42 +171,36 @@ cd rasadbin
 
 Replace `<REPOSITORY_URL>` with the actual repository URL.
 
-### 2. Initialize the Go Module
+### 2. Install Go Dependencies
 
-If the repository does not already contain a `go.mod` file:
+The module is declared as `rasadbin` in `go.mod`. No additional dependencies are currently required by the implemented code; install dependencies only as new components are added:
 
 ```bash
-go mod init github.com/<YOUR_USERNAME>/rasadbin
+go mod tidy
 ```
 
-If `go.mod` already exists, do not initialize it again.
-
-### 3. Install Go Dependencies
-
-Install only the dependencies required by the components currently being developed:
+Planned dependencies (not yet used by the current code) include:
 
 ```bash
 go get github.com/go-chi/chi/v5
 go get github.com/mattn/go-sqlite3
 go get github.com/google/gopacket
 go get github.com/coreos/go-systemd/v22
-
-go mod tidy
 ```
 
-Some dependencies may not yet be used by the current implementation. Keep `go.mod` synchronized as the codebase evolves.
+Keep `go.mod` synchronized as the codebase evolves.
 
-### 4. Run the Application
+### 3. Run the Application
 
-From the repository root:
+The main package lives at `cmd/app`. From the repository root:
 
 ```bash
-go run ./cmd/sentinel help
-go run ./cmd/sentinel version
-go run ./cmd/sentinel run
+go run ./cmd/app help
+go run ./cmd/app version
+go run ./cmd/app run
 ```
 
-The initial CLI executable is named `sentinel`. The product and repository are named Rasadbin; the executable can be renamed to `rasadbin` as part of a later packaging decision.
+The CLI reports the product name `Rasadbin`, the command name `rasadbin`, the version constant from `cmd/app/version.go`, and the Git commit hash injected at build time (or `unknown` when built without `scripts/build.sh`).
 
 By default, the HTTP server listens on:
 
@@ -209,7 +208,15 @@ By default, the HTTP server listens on:
 127.0.0.1:8080
 ```
 
-### 5. Verify the Health Endpoint
+A convenience script is available:
+
+```bash
+./scripts/run_server.sh
+```
+
+This runs the server on `127.0.0.1:9090`.
+
+### 4. Verify the Health Endpoint
 
 In another terminal:
 
@@ -217,34 +224,54 @@ In another terminal:
 curl -i http://127.0.0.1:8080/healthz
 ```
 
-The initial implementation should return an HTTP 200 response similar to:
+The initial implementation returns an HTTP 200 response similar to:
 
 ```json
 {
   "status": "ok",
-  "service": "sentinel",
+  "service": "rasadbin",
   "version": "0.1.0"
 }
 ```
 
 This endpoint currently checks basic HTTP service availability. It does not yet guarantee that collectors, storage, or detection components are operational.
 
-### 6. Build the Binary
+### 5. Build the Binary
+
+The build script injects the current short Git commit hash into the binary via `-ldflags -X main.commit=...`. The application version is a compile-time constant in `cmd/app/version.go` and is not overridden by the build.
 
 ```bash
-mkdir -p bin
+./scripts/build.sh
+```
 
-go build \
-  -ldflags "-X main.version=0.1.0" \
-  -o bin/sentinel \
-  ./cmd/sentinel
+This produces:
+
+```text
+build/rasadbin
+```
+
+To build manually with the same effect:
+
+```bash
+mkdir -p build
+COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+CGO_ENABLED=1 go build \
+  -ldflags "-X main.commit=${COMMIT}" \
+  -o build/rasadbin \
+  ./cmd/app
 ```
 
 Run the compiled binary:
 
 ```bash
-./bin/sentinel version
-./bin/sentinel run
+./build/rasadbin version
+./build/rasadbin run
+```
+
+`version` output has the form:
+
+```text
+Rasadbin 0.1.0 (<commit>)
 ```
 
 ## Development Commands
@@ -264,15 +291,15 @@ go test -race ./...
 # Run static analysis
 go vet ./...
 
-# Build the application
-go build -o bin/sentinel ./cmd/sentinel
+# Build the application (with commit hash injected)
+./scripts/build.sh
 ```
 
 Use `golangci-lint` when configured for the repository.
 
 ## Configuration
 
-The configuration system is planned to support a YAML file, environment variables, and command-line overrides.
+The configuration system is planned to support a YAML file, environment variables, and command-line overrides. The current implementation only supports the `--listen` flag for the `run` command.
 
 A future configuration file may look like this:
 
@@ -369,9 +396,13 @@ Packet visibility depends on the network interface and deployment topology. Capt
 ```text
 rasadbin/
 ├── cmd/
-│   └── sentinel/
-│       └── main.go
-├── internal/
+│   └── app/
+│       ├── main.go
+│       └── version.go
+├── scripts/
+│   ├── build.sh
+│   └── run_server.sh
+├── internal/            # planned
 │   ├── app/
 │   ├── config/
 │   ├── event/
@@ -389,20 +420,19 @@ rasadbin/
 │   │   └── handlers/
 │   └── security/
 ├── configs/
-│   └── rules/
-├── deploy/
-├── migrations/
-├── tests/
+│   └── rules/           # planned
+├── deploy/              # planned
+├── migrations/          # planned
+├── tests/               # planned
 │   ├── fixtures/
 │   └── integration/
-├── web/
+├── web/                 # planned
+├── .gitignore
 ├── go.mod
-├── go.sum
-├── Makefile
 └── README.md
 ```
 
-The structure is a target layout. Some directories and components may not exist in the current repository yet.
+Directories marked `# planned` do not exist in the repository yet and are part of the target layout.
 
 ## Design Principles
 
