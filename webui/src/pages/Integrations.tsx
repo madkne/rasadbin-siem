@@ -12,6 +12,8 @@ const statusText: Record<string,string> = {
   not_configured: "Not enabled",
   disabled: "Disabled",
   enabled_waiting_for_collector: "Enabled · collector adapter pending",
+  running: "Running",
+  failed: "Failed",
 };
 export default function Integrations() {
   const [items,setItems] = useState<Integration[]>([]);

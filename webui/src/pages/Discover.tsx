@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TopBar from "../components/TopBar";
 import { ws } from "../lib/ws";
 import type { EventEntry, SearchQuery, SearchResult } from "../lib/types";
@@ -196,10 +196,9 @@ export default function Discover() {
                 {result?.events.map((e, i) => {
                   const key = `${e.time}-${i}`;
                   const open = expanded === key;
-                  return (
-                    <>
-                      <tr
-                        key={key}
+                   return (
+                     <Fragment key={key}>
+                       <tr
                         className={`discover-row ${open ? "expanded" : ""}`}
                         onClick={() => setExpanded(open ? null : key)}
                         tabIndex={0}
@@ -216,9 +215,9 @@ export default function Discover() {
                             <pre>{JSON.stringify(e, null, 2)}</pre>
                           </td>
                         </tr>
-                      )}
-                    </>
-                  );
+                       )}
+                     </Fragment>
+                   );
                 })}
               </tbody>
             </table>

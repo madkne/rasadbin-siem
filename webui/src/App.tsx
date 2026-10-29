@@ -6,6 +6,7 @@ import RequireAuth from "./components/RequireAuth";
 import Integrations from "./pages/Integrations";
 import IntegrationWorkspace from "./pages/IntegrationWorkspace";
 import Discover from "./pages/Discover";
+import Alerts from "./pages/Alerts";
 
 export default function App() {
   return (
@@ -56,6 +57,15 @@ export default function App() {
         element={
           <RequireAuth>
             <Discover />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/alerts"
+        element={
+          <RequireAuth>
+            <Alerts />
           </RequireAuth>
         }
       />

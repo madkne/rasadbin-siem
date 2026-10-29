@@ -40,6 +40,12 @@ export default function TopBar() {
         >
           Discover
         </Link>
+        <Link
+          to="/alerts"
+          className={pathname === "/alerts" ? "active" : ""}
+        >
+          Alerts
+        </Link>
         {me?.role === "admin" && (
           <Link
             to="/integrations"

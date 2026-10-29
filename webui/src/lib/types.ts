@@ -77,3 +77,18 @@ export interface SearchResult {
   buckets: HistogramBucket[] | null;
   took_ms: number;
 }
+
+export interface Alert {
+  id: string;
+  rule_id: string;
+  title: string;
+  description: string;
+  severity: string;
+  first_seen: string;
+  last_seen: string;
+  count: number;
+  source: string;
+  source_ip?: string;
+  evidence?: string[];
+  status: string;
+}
