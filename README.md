@@ -31,14 +31,14 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 
 ### Detection and Alerting
 
-- [ ] Configurable detection rules using YAML or JSON.
+- [x] Configurable detection rules using YAML or JSON (`data/rules/`).
 - [ ] Time-window-based event aggregation.
 - [ ] Threshold-based detection.
-- [ ] SSH brute-force detection.
-- [ ] Network port-scan detection.
-- [ ] Suspicious authentication and privilege-escalation detection.
+- [x] SSH brute-force detection.
+- [x] Network port-scan detection.
+- [x] Repeated authentication-failure detection.
 - [ ] Service failure monitoring.
-- [ ] Alert deduplication, severity, and investigation status.
+- [x] In-memory alert generation, deduplication, severity, and open status.
 - [ ] Incident and case management.
 - [ ] Future support for a compatible subset of Sigma rules.
 
@@ -500,3 +500,9 @@ The Web UI includes an admin-only **Integrations** page. Built-in source definit
 - **Service logs** — service-specific parser adapters and service-health detection packs (collector pending).
 
 Each integration exposes its collector, processor, detections, alerting switch, and a dedicated workspace route (`/integrations/<id>`). The WebSocket control messages are `integrations.get`, `integration.update`, and `integration.events`.
+
+## Initial Detection Engine
+
+Rules are loaded from `DATA_DIR/rules` (default `./data/rules`) on startup. Supported formats are YAML (`.yaml`, `.yml`) and JSON (`.json`). A rule supports `id`, `title`, `description`, `severity`, `enabled`, `sources`, `match_any`, `kind`, `threshold`, `window_seconds`, and `dedup_seconds`. Three starter rules are shipped in `data/rules/` and should be copied into the runtime data directory when deploying from a packaged binary.
+
+Alerts are emitted on the authenticated WebSocket stream as `{"type":"alert","data":...}` and can be requested with `{"type":"alerts.get"}`. Alert state is currently in memory; persistent alert storage, status workflow, and hot reload are TODOs. Port-scan detection counts distinct destination ports per source in the configured window; SSH/auth detections use matching authentication log messages.

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"rasadbin/internal/detection"
 )
 
 const maxRecentEvents = 50
@@ -38,24 +40,28 @@ func encode(typ string, data any) []byte {
 
 // Event is one entry in the dashboard's live feed.
 type Event struct {
-	Time     time.Time `json:"time"`
-	Source   string    `json:"source"`
-	Severity string    `json:"severity"` // info | low | medium | high | critical
-	Message  string    `json:"message"`
+	Time time.Time `json:"time"
+
+	"rasadbin/internal/detection"`
+	Source   string `json:"source"`
+	Severity string `json:"severity"` // info | low | medium | high | critical
+	Message  string `json:"message"`
 }
 
 // Stats is what the dashboard shows.
 type Stats struct {
-	Time          time.Time `json:"time"`
-	UptimeSeconds int64     `json:"uptime_seconds"`
-	Version       string    `json:"version"`
-	Commit        string    `json:"commit"`
-	Goroutines    int       `json:"goroutines"`
-	HeapMB        float64   `json:"heap_mb"`
-	SysMB         float64   `json:"sys_mb"`
-	GCCycles      uint32    `json:"gc_cycles"`
-	Clients       int       `json:"clients"`
-	EventsTotal   uint64    `json:"events_total"`
+	Time time.Time `json:"time"
+
+	"rasadbin/internal/detection"`
+	UptimeSeconds int64   `json:"uptime_seconds"`
+	Version       string  `json:"version"`
+	Commit        string  `json:"commit"`
+	Goroutines    int     `json:"goroutines"`
+	HeapMB        float64 `json:"heap_mb"`
+	SysMB         float64 `json:"sys_mb"`
+	GCCycles      uint32  `json:"gc_cycles"`
+	Clients       int     `json:"clients"`
+	EventsTotal   uint64  `json:"events_total"`
 }
 
 // Hub tracks connected clients and fans data out to them.
@@ -67,7 +73,7 @@ type Hub struct {
 	store      EventStore // nil = memory-only (tests, no DB)
 	storeCh    chan Event
 	writerDone chan struct{} // closes when storeWriter returns
-	dropped atomic.Uint64
+	dropped    atomic.Uint64
 
 	started     time.Time
 	version     string
@@ -125,6 +131,13 @@ func (h *Hub) subscribers() []*client {
 }
 
 // Publish records an event and pushes it to dashboard subscribers.
+func (h *Hub) PublishAlert(a detection.Alert) {
+	b := encode("alert", a)
+	for _, c := range h.subscribers() {
+		c.enqueue(b)
+	}
+}
+
 func (h *Hub) Publish(e Event) {
 	if e.Time.IsZero() {
 		e.Time = time.Now().UTC()

@@ -14,6 +14,7 @@ import (
 
 	"rasadbin/internal/collector/network"
 	"rasadbin/internal/collector/syslog"
+	"rasadbin/internal/detection"
 )
 
 // Config configures the web UI.
@@ -37,6 +38,7 @@ type Server struct {
 	baseCtx          context.Context
 	networkCaptures  []*network.Collector
 	collectorManager *CollectorManager
+	detection        *detection.Engine
 }
 
 // New builds the web UI server.
@@ -91,12 +93,22 @@ func New(cfg Config) (*Server, error) {
 			cfg.WebUIDir, err)
 	}
 
+	rulesDir := filepath.Join(cfg.DataDir, "rules")
+	if err := os.MkdirAll(rulesDir, 0700); err != nil {
+		return nil, fmt.Errorf("create detection rules directory: %w", err)
+	}
+	engine, err := detection.New(rulesDir)
+	if err != nil {
+		return nil, fmt.Errorf("load detection rules: %w", err)
+	}
+
 	return &Server{
 		hub:          NewHub(cfg.Version, cfg.Commit),
 		auth:         auth,
 		settings:     store,
 		integrations: integrations,
 		static:       static,
+		detection:    engine,
 	}, nil
 }
 
@@ -125,7 +137,23 @@ func (s *Server) Run(ctx context.Context) {
 func (s *Server) Publish(e Event) {
 	if processed, ok := s.integrations.ProcessEvent(e); ok {
 		s.hub.Publish(processed)
+		if s.detection != nil {
+			for _, alert := range s.detection.Process(detection.Event{
+				Time: processed.Time, Source: processed.Source,
+				Severity: processed.Severity, Message: processed.Message,
+			}) {
+				s.hub.PublishAlert(alert)
+			}
+		}
 	}
+}
+
+// RecentAlerts returns the most recent in-memory alerts.
+func (s *Server) RecentAlerts(limit int) []detection.Alert {
+	if s.detection == nil {
+		return nil
+	}
+	return s.detection.Recent(limit)
 }
 
 // Integrations returns a snapshot of built-in integration configuration.

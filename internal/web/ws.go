@@ -212,6 +212,8 @@ func (c *client) dispatch(env envelope) {
 		if c.requireAdmin(env.Type, sess) {
 			c.sendJSON("integrations", c.srv.Integrations())
 		}
+	case "alerts.get":
+		c.sendJSON("alerts", c.srv.RecentAlerts(500))
 
 	case "integration.update":
 		if c.requireAdmin(env.Type, sess) {
