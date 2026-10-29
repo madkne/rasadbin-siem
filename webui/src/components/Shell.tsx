@@ -19,7 +19,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Identity | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [search, setSearch] = useState("");
-
+  const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
     const offStatus = ws.onStatus(setConnected);
     const offReady = ws.on("ready", (identity) => {
@@ -53,6 +53,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   const alertCount = alerts.length;
 
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     const q = search.trim();
@@ -61,7 +65,18 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      <aside className="side-nav" aria-label="Primary navigation">
+      {navOpen && (
+        <button
+          type="button"
+          className="side-nav-overlay"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+      <aside
+        className={`side-nav ${navOpen ? "open" : ""}`}
+        aria-label="Primary navigation"
+      >
         <div className="side-brand">
           <span className="side-brand-mark">R</span>
           <div>
@@ -104,6 +119,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       <div className="app-main">
         <header className="topbar">
+          <button
+            type="button"
+            className="side-nav-toggle"
+            aria-label="Toggle navigation"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen((v) => !v)}
+          >
+            ☰
+          </button>
           <form className="topbar-search" onSubmit={submitSearch}>
             <span className="topbar-search-icon" aria-hidden>
               ⌕
