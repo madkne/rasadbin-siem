@@ -11,6 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"rasadbin/internal/web"
 )
 
 // TODO: Replace these constants with build-time values.
@@ -77,6 +79,11 @@ func runCommand(args []string) error {
 		"127.0.0.1:8080",
 		"HTTP listen address",
 	)
+	dataDir := fs.String(
+		"data-dir",
+		"./data",
+		"directory for persisted settings",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -97,15 +104,18 @@ func runCommand(args []string) error {
 	// TODO: Initialize network, journald and file-log collectors.
 	// TODO: Initialize enrichment and detection engines.
 	// TODO: Initialize alert and case management.
-	// TODO: Initialize authentication and authorization.
-	// TODO: Register API routes and embed the production web UI.
+	// TODO: Persist users (the web UI keeps them in memory for now).
 	// TODO: Expose metrics and collector health information.
 	// TODO: Apply least-privilege permissions for Linux collectors.
+
+	// The log level can be changed at runtime from the admin settings page.
+	logLevel := new(slog.LevelVar)
+	logLevel.Set(slog.LevelInfo)
 
 	logger := slog.New(slog.NewTextHandler(
 		os.Stdout,
 		&slog.HandlerOptions{
-			Level: slog.LevelInfo,
+			Level: logLevel,
 		},
 	))
 	slog.SetDefault(logger)
@@ -116,6 +126,18 @@ func runCommand(args []string) error {
 		syscall.SIGTERM,
 	)
 	defer stop()
+
+	ui, err := web.New(web.Config{
+		DataDir:       *dataDir,
+		AdminPassword: os.Getenv("RASADBIN_ADMIN_PASSWORD"),
+		Version:       APP_VERSION,
+		Commit:        commit,
+		LogLevel:      logLevel,
+	})
+	if err != nil {
+		return fmt.Errorf("web UI: %w", err)
+	}
+	go ui.Run(ctx)
 
 	mux := http.NewServeMux()
 
@@ -131,23 +153,22 @@ func runCommand(args []string) error {
 		))
 	})
 
+	// Pages (/login, /dashboard, /settings), static assets and the
+	// WebSocket endpoint (/ws). There is deliberately no REST API.
+	mux.Handle("/", ui.Handler())
+
 	// TODO: Add GET /readyz for dependency readiness.
-	// TODO: Add GET /api/v1/overview.
-	// TODO: Add GET /api/v1/events and event details.
-	// TODO: Add GET /api/v1/alerts and alert management.
-	// TODO: Add CRUD endpoints for sources and detection rules.
-	// TODO: Add GET /api/v1/network/interfaces.
-	// TODO: Add SSE endpoint for live events and alerts.
-	// TODO: Protect management endpoints with authentication,
-	// authorization, request limits and audit logging.
+	// TODO: Collectors call ui.Publish(web.Event{...}) to feed the
+	// dashboard's live event list.
 
 	server := &http.Server{
 		Addr:              *listenAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		// No WriteTimeout: it would also apply to hijacked WebSocket
+		// connections. The WebSocket layer enforces its own write deadlines.
+		IdleTimeout: 60 * time.Second,
 	}
 
 	serverErrors := make(chan error, 1)
@@ -209,10 +230,10 @@ func runCommand(args []string) error {
 }
 
 func printUsage() {
-	fmt.Printf(`%s %s
+	fmt.Printf(`%[1]s %[2]s
 
 Usage:
-  %s <command> [options]
+  %[3]s <command> [options]
 
 Commands:
   run       Start the SIEM service
@@ -220,11 +241,15 @@ Commands:
   help      Show this help
 
 Run options:
-  --listen  HTTP listen address (default: 127.0.0.1:8080)
+  --listen    HTTP listen address (default: 127.0.0.1:8080)
+  --data-dir  Directory for persisted settings (default: ./data)
+
+Environment:
+  RASADBIN_ADMIN_PASSWORD  Admin password (random one is printed if unset)
 
 Examples:
-  %s run
-  %s run --listen 127.0.0.1:9090
-  %s version
+  %[3]s run
+  %[3]s run --listen 127.0.0.1:9090
+  %[3]s version
 `, APP_NAME, APP_VERSION, APP_COMMAND_NAME)
 }

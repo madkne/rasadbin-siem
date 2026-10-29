@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rasadbin – Settings</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand" id="brand">Rasadbin</span>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/settings" class="active" data-admin hidden>Settings</a>
+    </nav>
+    <span class="spacer"></span>
+    <span id="conn" class="dot" title="disconnected"></span>
+    <span id="user" class="muted"></span>
+    <button id="logout" class="ghost" type="button">Sign out</button>
+  </header>
+
+  <main>
+    <p id="denied" class="card" hidden>Admin access is required to view this page.</p>
+
+    <section class="card" id="general" hidden>
+      <h2>General</h2>
+      <form id="settings-form">
+        <div class="row">
+          <label>Instance name
+            <input name="instance_name" maxlength="64" required>
+          </label>
+          <label>Log level
+            <select name="log_level">
+              <option value="debug">debug</option>
+              <option value="info">info</option>
+              <option value="warn">warn</option>
+              <option value="error">error</option>
+            </select>
+          </label>
+          <label>Session timeout (minutes)
+            <input name="session_minutes" type="number" min="5" max="1440" required>
+          </label>
+          <label>Event retention (days)
+            <input name="retention_days" type="number" min="1" max="3650" required>
+          </label>
+          <label>Dashboard refresh (seconds)
+            <input name="refresh_seconds" type="number" min="1" max="60" required>
+          </label>
+        </div>
+        <div><button type="submit">Save settings</button></div>
+        <p id="settings-msg" class="msg" role="status"></p>
+      </form>
+    </section>
+
+    <section class="card" id="password" hidden>
+      <h2>Change password</h2>
+      <form id="password-form">
+        <div class="row">
+          <label>Current password
+            <input name="current" type="password" autocomplete="current-password" maxlength="128" required>
+          </label>
+          <label>New password (min. 10 characters)
+            <input name="new" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+          </label>
+          <label>Repeat new password
+            <input name="repeat" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+          </label>
+        </div>
+        <div><button type="submit">Change password</button></div>
+        <p id="password-msg" class="msg" role="status"></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/settings.js"></script>
+</body>
+</html>
