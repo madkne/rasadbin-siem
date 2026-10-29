@@ -134,6 +134,7 @@ export interface WsMessageMap {
   "integration.status": { id: string; status: string };
   "discover.results": SearchResult;
   "discover.sources": string[];
+  "match_terms": string[];
   settings: Settings;
   settings_saved: Settings;
   error: ErrorPayload;

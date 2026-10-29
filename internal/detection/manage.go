@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,42 @@ import (
 
 var ruleIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$`)
 
+func (e *Engine) MatchTerms() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	seen := map[string]struct{}{}
+	add := func(t string) {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			return
+		}
+		seen[t] = struct{}{}
+	}
+	for _, t := range []string{
+		"Failed password",
+		"authentication failure",
+		"authentication failed",
+		"auth failure",
+		"failed login",
+		"login failed",
+		"Invalid user",
+		"invalid user",
+		"pam_unix",
+	} {
+		add(t)
+	}
+	for _, r := range e.rules {
+		for _, t := range r.MatchAny {
+			add(t)
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for t := range seen {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
 func (e *Engine) Rules() []Rule {
 	e.mu.Lock()
 	defer e.mu.Unlock()

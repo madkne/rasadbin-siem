@@ -216,6 +216,15 @@ func (c *client) dispatch(env envelope) {
 	case "alerts.get":
 		c.sendJSON("alerts", c.srv.RecentAlerts(500))
 
+	case "match_terms.get", "match_terms", "rules.match_terms", "rule.match_terms", "rules.terms", "rule.terms", "terms.get":
+		if c.requireAdmin(env.Type, sess) {
+			if c.srv.detection == nil {
+				c.sendError(env.Type, "detection engine is unavailable")
+				break
+			}
+			terms := c.srv.detection.MatchTerms()
+			c.sendJSON("match_terms", terms)
+		}
 	case "rules.get":
 		if c.requireAdmin(env.Type, sess) {
 			if c.srv.detection == nil {
