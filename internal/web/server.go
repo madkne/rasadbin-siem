@@ -22,6 +22,7 @@ import (
 
 // Config configures the web UI.
 type Config struct {
+	AuthRepository  AuthRepository
 	DataDir         string
 	AdminPassword   string // generated and printed to stderr when empty
 	Version         string
@@ -75,19 +76,28 @@ func New(cfg Config) (*Server, error) {
 
 	password := cfg.AdminPassword
 	if password == "" {
-		tok := randomToken()
-		if len(tok) > 20 {
-			tok = tok[:20]
+		usersExist := false
+		if cfg.AuthRepository != nil {
+			var checkErr error
+			usersExist, checkErr = cfg.AuthRepository.HasAuthUsers()
+			if checkErr != nil {
+				return nil, fmt.Errorf("check persisted auth users: %w", checkErr)
+			}
 		}
-		password = tok
-		fmt.Fprintf(os.Stderr,
-			"rasadbin: generated admin password (set RASADBIN_ADMIN_PASSWORD to choose your own): %s\n",
-			password)
+		if !usersExist {
+			tok := randomToken()
+			if len(tok) > 20 {
+				tok = tok[:20]
+			}
+			password = tok
+			fmt.Fprintf(os.Stderr,
+				"rasadbin: generated initial admin password (set ADMIN_PASSWORD to choose your own): %s\\n",
+				password)
+		}
 	}
-
-	auth, err := NewAuth(password, func() time.Duration {
+	auth, err := NewAuthWithRepository(password, func() time.Duration {
 		return time.Duration(store.Get().SessionMinutes) * time.Minute
-	})
+	}, cfg.AuthRepository)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +136,7 @@ func New(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("initialize security profiles: %w", err)
 	}
 	srv.profiles = profiles
-	
+
 	return srv, nil
 }
 

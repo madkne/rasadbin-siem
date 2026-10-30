@@ -191,8 +191,57 @@ func dialectorFor(cfg config.DBConfig) (gorm.Dialector, error) {
 func containsQuery(dsn string) bool { return strings.Contains(dsn, "?") }
 
 func migrate(db *gorm.DB) error {
-	if err := db.AutoMigrate(&Event{}); err != nil {
-		return fmt.Errorf("auto migrate events: %w", err)
+	if err := db.AutoMigrate(&Event{}, &AuthUser{}, &AuthSession{}); err != nil {
+		return fmt.Errorf("auto migrate database: %w", err)
 	}
 	return nil
+}
+
+func (s *Store) LoadAuthState() ([]web.AuthUserRecord, []web.AuthSessionRecord, error) {
+	var users []AuthUser
+	if err := s.db.Order("username").Find(&users).Error; err != nil {
+		return nil, nil, fmt.Errorf("load auth users: %w", err)
+	}
+	var sessions []AuthSession
+	if err := s.db.Where("expires > ?", time.Now().UTC()).Find(&sessions).Error; err != nil {
+		return nil, nil, fmt.Errorf("load auth sessions: %w", err)
+	}
+	outUsers := make([]web.AuthUserRecord, 0, len(users))
+	for _, u := range users {
+		outUsers = append(outUsers, web.AuthUserRecord{Username: u.Username, Role: u.Role, Salt: u.Salt, Hash: u.Hash})
+	}
+	outSessions := make([]web.AuthSessionRecord, 0, len(sessions))
+	for _, v := range sessions {
+		outSessions = append(outSessions, web.AuthSessionRecord{TokenHash: v.TokenHash, Username: v.Username, Role: v.Role, Expires: v.Expires})
+	}
+	return outUsers, outSessions, nil
+}
+func (s *Store) SaveAuthUser(u web.AuthUserRecord) error {
+	row := AuthUser{Username: u.Username, Role: u.Role, Salt: u.Salt, Hash: u.Hash}
+	if err := s.db.Where("username = ?", u.Username).Assign(row).FirstOrCreate(&row).Error; err != nil {
+		return fmt.Errorf("save auth user: %w", err)
+	}
+	return nil
+}
+func (s *Store) SaveAuthSession(v web.AuthSessionRecord) error {
+	row := AuthSession{TokenHash: v.TokenHash, Username: v.Username, Role: v.Role, Expires: v.Expires.UTC()}
+	if err := s.db.Create(&row).Error; err != nil {
+		return fmt.Errorf("save auth session: %w", err)
+	}
+	return nil
+}
+func (s *Store) DeleteAuthSession(tokenHash string) error {
+	return s.db.Where("token_hash = ?", tokenHash).Delete(&AuthSession{}).Error
+}
+func (s *Store) DeleteAuthSessions(username string) error {
+	return s.db.Where("username = ?", username).Delete(&AuthSession{}).Error
+}
+
+// HasAuthUsers reports whether bootstrap credentials are still required.
+func (s *Store) HasAuthUsers() (bool, error) {
+	var count int64
+	if err := s.db.Model(&AuthUser{}).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("check auth users: %w", err)
+	}
+	return count > 0, nil
 }

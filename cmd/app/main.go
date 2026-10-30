@@ -81,7 +81,7 @@ func runCommand(args []string) error {
 	// TODO: Initialize network, journald and file-log collectors.
 	// TODO: Initialize enrichment and detection engines.
 	// TODO: Initialize alert and case management.
-	// TODO: Persist users (the web UI keeps them in memory for now).
+	// Authentication users and sessions are persisted by the GORM store.
 	// TODO: Expose metrics and collector health information.
 	// TODO: Apply least-privilege permissions for Linux collectors.
 
@@ -106,13 +106,22 @@ func runCommand(args []string) error {
 	)
 	defer stop()
 
+	// Open and migrate the database before constructing Auth: users and
+	// sessions are restored from the same persistent database as events.
+	store, err := storage.Open(cfg.DB)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer store.Close()
+
 	ui, err := web.New(web.Config{
-		DataDir:       cfg.DataDir,
-		AdminPassword: cfg.AdminPassword,
-		Version:       APP_VERSION,
-		Commit:        commit,
-		LogLevel:      logLevel,
-		WebUIDir:      cfg.WebUIDir,
+		DataDir:        cfg.DataDir,
+		AdminPassword:  cfg.AdminPassword,
+		AuthRepository: store,
+		Version:        APP_VERSION,
+		Commit:         commit,
+		LogLevel:       logLevel,
+		WebUIDir:       cfg.WebUIDir,
 	})
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
@@ -121,12 +130,6 @@ func runCommand(args []string) error {
 		return fmt.Errorf("initialize collector manager: %w", err)
 	}
 	defer ui.CloseCollectors()
-
-	store, err := storage.Open(cfg.DB)
-	if err != nil {
-		return fmt.Errorf("open event store: %w", err)
-	}
-	defer store.Close()
 	ui.SetStore(ctx, store, store)
 	go ui.Run(ctx)
 	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterfaces); err != nil {
