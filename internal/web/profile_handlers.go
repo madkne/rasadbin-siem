@@ -1,15 +1,17 @@
 package web
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	"rasadbin/internal/detection"
 	"rasadbin/internal/profile"
+
+	"gopkg.in/yaml.v3"
 )
 
 const maxProfilePayload = 27 << 20
@@ -22,6 +24,11 @@ func (h profileRuleHandler) decode(raw []byte, format string) (detection.Rule, e
 		return r, err
 	}
 	if err := detection.ValidateRule(r); err != nil {
+		return r, err
+	}
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	dec.KnownFields(true)
+	if err := dec.Decode(&r); err != nil {
 		return r, err
 	}
 	for _, old := range h.engine.Rules() {

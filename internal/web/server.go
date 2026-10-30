@@ -22,14 +22,15 @@ import (
 
 // Config configures the web UI.
 type Config struct {
-	AuthRepository  AuthRepository
-	DataDir         string
-	AdminPassword   string // generated and printed to stderr when empty
-	Version         string
-	Commit          string
-	LogLevel        *slog.LevelVar // adjusted by the admin settings page
-	WebUIDir        string         // path to webui/dist (defaults to "webui/dist")
-	ServiceLogPaths []string
+	AuthRepository    AuthRepository
+	DataDir           string
+	AdminPassword     string // generated and printed to stderr when empty
+	Version           string
+	Commit            string
+	LogLevel          *slog.LevelVar // adjusted by the admin settings page
+	WebUIDir          string         // path to webui/dist (defaults to "webui/dist")
+	ServiceLogPaths   []string
+	CaptureInterfaces []string
 }
 
 // Server is the web UI: pages, static assets and the WebSocket hub.
@@ -46,6 +47,7 @@ type Server struct {
 	detection        *detection.Engine
 	serviceLogPaths  []string
 	profiles         *profile.Manager
+	captureIfaces    []string
 }
 
 // New builds the web UI server.
@@ -126,6 +128,7 @@ func New(cfg Config) (*Server, error) {
 		static:          static,
 		detection:       engine,
 		serviceLogPaths: cfg.ServiceLogPaths,
+		captureIfaces:   cfg.CaptureInterfaces,
 	}
 	srv.integrations.notify = func(typ string, data any) {
 		srv.hub.Broadcast(typ, data)
@@ -288,18 +291,41 @@ func (s *Server) InitCollectorManager(ctx context.Context) error {
 	m := NewCollectorManager(ctx, s.integrations)
 
 	if err := m.Register("network-packets", func() (CollectorRunner, error) {
-		c, err := network.New("any", func(e network.PacketEvent) {
-			s.Publish(Event{
-				Time:     e.Time,
-				Source:   "network-packets",
-				Severity: "info",
-				Message:  e.String(),
-			})
-		})
-		if err != nil {
-			return nil, err
+		ifaces := s.captureIfaces
+		if len(ifaces) == 0 {
+			ifaces = []string{"any"} // CAPTURE_INTERFACE unset
 		}
-		return c.Run, nil
+		cols := make([]*network.Collector, 0, len(ifaces))
+		for _, iface := range ifaces {
+			c, err := network.New(iface, func(e network.PacketEvent) {
+				s.Publish(Event{
+					Time:     e.Time,
+					Source:   "network-packets",
+					Severity: "info",
+					Message:  e.String(),
+				})
+			})
+			if err != nil {
+				return nil, err // e.g. interface does not exist
+			}
+			cols = append(cols, c)
+		}
+		return func(ctx context.Context) error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			errCh := make(chan error, len(cols))
+			for _, c := range cols {
+				go func(c *network.Collector) { errCh <- c.Run(ctx) }(c)
+			}
+			var first error
+			for range cols {
+				if err := <-errCh; err != nil && first == nil {
+					first = err
+					cancel() // stop the other interfaces too
+				}
+			}
+			return first
+		}, nil
 	}); err != nil {
 		m.Close()
 		return err

@@ -115,13 +115,15 @@ func runCommand(args []string) error {
 	defer store.Close()
 
 	ui, err := web.New(web.Config{
-		DataDir:        cfg.DataDir,
-		AdminPassword:  cfg.AdminPassword,
-		AuthRepository: store,
-		Version:        APP_VERSION,
-		Commit:         commit,
-		LogLevel:       logLevel,
-		WebUIDir:       cfg.WebUIDir,
+		DataDir:           cfg.DataDir,
+		AdminPassword:     cfg.AdminPassword,
+		AuthRepository:    store,
+		Version:           APP_VERSION,
+		Commit:            commit,
+		LogLevel:          logLevel,
+		WebUIDir:          cfg.WebUIDir,
+		CaptureInterfaces: cfg.CaptureInterfaces,
+		ServiceLogPaths:   cfg.ServiceLogPaths,
 	})
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
@@ -132,12 +134,10 @@ func runCommand(args []string) error {
 	defer ui.CloseCollectors()
 	ui.SetStore(ctx, store, store)
 	go ui.Run(ctx)
-	if err := ui.StartNetworkCapture(ctx, cfg.CaptureInterfaces); err != nil {
-		slog.Warn("network packet capture unavailable", "error", err)
-	}
-	if err := ui.StartSyslogCollection(ctx, cfg.SyslogPaths); err != nil {
-		slog.Warn("syslog file collection unavailable", "error", err)
-	}
+
+	// if err := ui.StartSyslogCollection(ctx, cfg.SyslogPaths); err != nil {
+	// 	slog.Warn("syslog file collection unavailable", "error", err)
+	// }
 
 	mux := http.NewServeMux()
 
