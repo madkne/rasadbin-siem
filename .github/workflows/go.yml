@@ -1,0 +1,81 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        # Must match the `go` directive in go.mod (go 1.27.2).
+        go-version: '1.27.2'
+        cache: true
+        cache-dependency-path: go.sum
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: webui/package-lock.json
+
+    - name: Build Web UI
+      working-directory: webui
+      run: |
+        npm ci
+        npm run build
+
+    - name: Verify build output
+      run: |
+        test -f webui/dist/index.html || (echo "webui/dist/index.html missing" && exit 1)
+
+    - name: Install Go dependencies
+      run: go mod download
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: Build
+      # CGO_ENABLED=1 is required by github.com/mattn/go-sqlite3.
+      env:
+        CGO_ENABLED: '1'
+      run: go build -v ./...
+
+    - name: Test
+      env:
+        CGO_ENABLED: '1'
+      run: go test -v ./...
+
+    - name: Build application binary
+      # Mirrors scripts/build.sh: injects the short commit into main.commit.
+      env:
+        CGO_ENABLED: '1'
+      run: |
+        mkdir -p build
+        COMMIT="$(git rev-parse --short HEAD)"
+        go build \
+          -ldflags "-X main.commit=${COMMIT}" \
+          -o build/rasadbin \
+          ./cmd/app
+        ./build/rasadbin version
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: rasadbin-linux-amd64
+        path: build/rasadbin
+        if-no-files-found: error
