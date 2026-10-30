@@ -1,10 +1,44 @@
 # Rasadbin SIEM Platform
 
-**Rasadbin** is a Linux-first Security Information and Event Management (SIEM) platform written in Go, designed to collect, normalize, analyze, and correlate security events from network traffic, operating system logs, and service logs through a unified web interface.
+**Rasadbin** is a Linux-first Security Information and Event Management (SIEM) platform written in Go. It collects, normalizes, analyzes, and correlates security events from network traffic, system logs, and service logs through a unified, self-hosted web interface.
 
-The project aims to provide a lightweight, extensible, and self-hosted security monitoring solution with a modular architecture and a clear path toward advanced threat detection.
+The architecture is a modular monolith: collectors, detection, storage, and the web control plane are cleanly separated so each can evolve independently.
 
-> **Project status:** Early development. The web UI, authentication, settings persistence, integration registry, and Linux AF_PACKET network collector are implemented. Log collection, detection rules, persistent event storage, and alerting are planned components and should not be considered production-ready until implemented and tested.
+> **Project status:** Active development, pre-1.0. The web UI, authentication with persistent users/sessions, settings, integration control plane, security profiles, detection engine, discovery/search, alerts, and all four collectors are implemented. Storage supports SQLite, PostgreSQL, and MySQL via GORM. Treat it as suitable for controlled or lab deployments — not yet audited for security-critical production use.
+
+---
+
+## Screenshots
+
+### Dashboard
+
+Live health metrics, severity breakdown, heap telemetry, and the recent-event feed.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Discover
+
+Searchable event explorer with severity/source filters, a time histogram, and expandable event documents.
+
+![Discover](docs/screenshots/discover.png)
+
+### Detection Rules
+
+Create, validate, enable/disable, and delete detection rules from the UI.
+
+![Rules](docs/screenshots/rules.png)
+
+### Integrations
+
+Enable telemetry sources, toggle alerting, and open a per-integration workspace.
+
+![Integrations](docs/screenshots/integrations.png)
+
+### Security Profiles
+
+Import, validate, install, and remove reusable ZIP bundles of rules, integrations, and configuration.
+
+![Profiles](docs/screenshots/profiles.png)
 
 ## Features and Roadmap
 
@@ -12,61 +46,58 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 
 - [x] Live network packet capture on Linux network interfaces (AF_PACKET, metadata only).
 - [x] TCP and UDP flow metadata extraction.
-- [ ] Offline PCAP processing for testing and investigation.
 - [x] System log collection through `systemd-journald`.
 - [x] File-based syslog collection with rotation and truncation handling.
 - [x] Linux authentication and privilege-escalation event parsing (syslog heuristic severity).
 - [x] Service-specific log parsers for Nginx, SSH, Docker, and other applications.
+- [ ] Offline PCAP processing for testing and investigation.
 - [ ] Configurable collection sources and filters.
 
 ### Event Processing
 
 - [x] Common event schema for all collection sources (`web.Event`).
 - [x] Event normalization and validation.
+- [x] Bounded ingestion queues (hub recent buffer, store channel with drop counter).
 - [ ] Host, process, user, and network context enrichment.
 - [ ] Duplicate event detection.
-- [x] Bounded ingestion queues (hub recent buffer, store channel with drop counter).
 - [ ] Persistent checkpoints for reliable log collection.
 - [ ] Event correlation across multiple data sources.
 
 ### Detection and Alerting
 
 - [x] Configurable detection rules using YAML or JSON (`data/rules/`).
-- [ ] Time-window-based event aggregation.
-- [ ] Threshold-based detection.
 - [x] SSH brute-force detection.
 - [x] Network port-scan detection.
 - [x] Repeated authentication-failure detection.
-- [ ] Service failure monitoring.
 - [x] In-memory alert generation, deduplication, severity, and open status.
+- [x] Live alert push over WebSocket.
+- [ ] Service failure monitoring.
+- [ ] Time-window-based event aggregation.
+- [ ] Threshold-based detection.
 - [ ] Incident and case management.
 - [ ] Future support for a compatible subset of Sigma rules.
 
-### Web Interface and API
+### Web Interface
 
-- [x] Security overview dashboard with live stats and event feed (WebSocket).
-- [x] Searchable event explorer (Discover page with time range, severity, source filters, histogram and live updates).
-- [ ] Alert and incident management.
-- [ ] Network flow explorer.
-- [x] Collector health monitoring (integration status in the UI).
-- [ ] Detection rule management.
-- [ ] REST API with versioned endpoints (currently WebSocket-only).
-- [x] Live updates over WebSocket (not SSE).
-- [x] Authentication, authorization, and administrative audit logging (in-memory users).
-- [x] Admin settings page (instance name, log level, session timeout, retention, refresh interval).
-- [x] Built-in integration control plane with enable/disable and alerting toggles.
-- [x] Discover-style log explorer with time range, severity, source filters and a histogram.
+- [x] Dashboard with live stats, severity breakdown, heap chart, and event feed.
+- [x] Discover log explorer (query, severity/source/time filters, histogram, JSON export, live append).
+- [x] Alerts view with filters and evidence.
+- [x] Detection rules editor (admin).
+- [x] Integration control plane + per-integration workspace (admin).
+- [x] Security profile import/export (admin).
+- [x] Settings page (admin).
+- [x] WebSocket-only API (single `/ws` endpoint).
 
 ### Operations
 
-- [ ] Linux service integration using systemd.
-- [ ] Configuration validation and diagnostics.
+- [x] Persistent users and sessions (hashed, PBKDF2-SHA256) in the database.
+- [x] Persistent event storage (SQLite/PostgreSQL/MySQL via GORM).
 - [x] Health endpoint (`/healthz`).
-- [ ] Metrics and performance monitoring.
-- [ ] Configurable event retention (setting persisted, not yet enforced).
-- [x] Graceful shutdown and resource cleanup.
-- [x] Persistent event storage via GORM (SQLite, PostgreSQL, MySQL).
-- [ ] Automated unit, integration, and load tests (partial: network decoding and integration store tests exist).
+- [x] Graceful shutdown with store drain.
+- [x] Configurable runtime settings (persisted to `DATA_DIR/settings.json`).
+- [ ] Metrics endpoint.
+- [ ] Enforced event retention (setting persisted, enforcement pending).
+- [ ] systemd unit / packaging.
 
 ## Architecture
 
@@ -105,37 +136,6 @@ Rasadbin follows a modular monolithic architecture. Collection, processing, dete
 | AF_PACKET / TCP  | | journald/Audit | | Files / Syslog|
 +------------------+ +----------------+ +---------------+
 ```
-
-### Core Components
-
-| Component             | Responsibility                                                           |
-| --------------------- | ------------------------------------------------------------------------ |
-| Network Collector     | Captures packets via AF_PACKET and extracts L3/L4 metadata.              |
-| System Collector      | Reads operating system and authentication events (planned).              |
-| Service Log Collector | Reads and parses application and service logs (planned).                 |
-| Event Pipeline        | Normalizes, enriches, and routes events (seam in place).                 |
-| Detection Engine      | Evaluates rules and identifies suspicious behavior (planned).            |
-| Alert Manager         | Creates, deduplicates, and tracks security alerts (planned).             |
-| Storage Layer         | Persists events, configuration, rules, and investigation data (planned). |
-| WebSocket API         | Exposes live dashboard, integration control, and settings.               |
-| Web Interface         | Provides centralized security visibility and investigation tools.        |
-
-## Technology Stack
-
-| Area               | Technology                                                  |
-| ------------------ | ----------------------------------------------------------- |
-| Backend            | Go                                                          |
-| HTTP Server        | Go `net/http`                                               |
-| WebSocket          | `github.com/coder/websocket`                                |
-| Network Capture    | Linux AF_PACKET (raw sockets), no libpcap dependency        |
-| Initial Storage    | JSON files (`data/settings.json`, `data/integrations.json`) |
-| Frontend           | React, TypeScript, and Vite                                 |
-| Live Updates       | WebSocket (single `/ws` endpoint)                           |
-| Configuration      | Environment variables, `.env` file, and CLI flags           |
-| Service Management | systemd (planned)                                           |
-| Testing            | Go testing                                                  |
-
-The storage layer is intended to be replaceable. SQLite (with FTS5) is a candidate for event storage; PostgreSQL or ClickHouse may be considered later if workload measurements show that JSON-based persistence is insufficient.
 
 ## Requirements
 
@@ -232,11 +232,9 @@ The implementation returns an HTTP 200 response similar to:
 {
   "status": "ok",
   "service": "rasadbin",
-  "version": "0.1.8"
+  "version": "0.4.1"
 }
 ```
-
-This endpoint currently checks basic HTTP service availability. It does not yet guarantee that collectors, storage, or detection components are operational.
 
 ### 6. Build the Binary
 
@@ -244,36 +242,6 @@ The build script injects the current short Git commit hash into the binary via `
 
 ```bash
 ./scripts/build.sh
-```
-
-This produces:
-
-```text
-build/rasadbin
-```
-
-To build manually with the same effect:
-
-```bash
-mkdir -p build
-COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-CGO_ENABLED=1 go build \
-  -ldflags "-X main.commit=${COMMIT}" \
-  -o build/rasadbin \
-  ./cmd/app
-```
-
-Run the compiled binary:
-
-```bash
-./build/rasadbin version
-./build/rasadbin run
-```
-
-`version` output has the form:
-
-```text
-Rasadbin 0.1.8 (<commit>)
 ```
 
 ## Development Commands
@@ -315,67 +283,30 @@ Rasadbin resolves configuration with the following precedence (highest wins):
 
 Loaded at startup from `.env`, the environment, and CLI flags. See `.env.example`.
 
-| Variable            | Flag                  | Default             | Description                                 |
-| ------------------- | --------------------- | ------------------- | ------------------------------------------- |
-| `HTTP_HOST`         |                       | `127.0.0.1`         | HTTP bind host                              |
-| `HTTP_PORT`         |                       | `8080`              | HTTP bind port                              |
-| `DATA_DIR`          | `--data-dir`          | `./data`            | Directory for persisted settings            |
-| `WEBUI_DIR`         | `--webui-dir`         | `webui/dist`        | Path to built web UI assets                 |
-| `ADMIN_PASSWORD`    |                       | (generated)         | Initial admin password (min. 10 characters) |
-| `CAPTURE_INTERFACE` | `--capture-interface` | (collector default) | Linux interface for packet capture          |
+| Variable            | Flag                  | Default             | Description                                   |
+| ------------------- | --------------------- | ------------------- | --------------------------------------------- |
+| `HTTP_HOST`         |                       | `127.0.0.1`         | HTTP bind host                                |
+| `HTTP_PORT`         |                       | `8080`              | HTTP bind port                                |
+| `DATA_DIR`          | `--data-dir`          | `./data`            | Directory for persisted settings              |
+| `WEBUI_DIR`         | `--webui-dir`         | `webui/dist`        | Path to built web UI assets                   |
+| `ADMIN_PASSWORD`    |                       | (generated)         | Initial admin password (min. 10 characters)   |
+| `CAPTURE_INTERFACE` | `--capture-interface` | (collector default) | Linux interface for packet capture            |
 | `MAX_GOROUTINES`    | `--max-goroutines`    | (NumCPU)            | Maximum OS threads/goroutines for the runtime |
-| `ENV_FILE`          |                       | `.env`              | Path to the environment file                |
+| `ENV_FILE`          |                       | `.env`              | Path to the environment file                  |
 
 The `--listen` flag overrides `HTTP_HOST`/`HTTP_PORT` directly.
 
-### Runtime Settings
+## Security Profiles
 
-Editable from the admin **Settings** page and persisted to `DATA_DIR/settings.json`:
+A security profile is a ZIP archive that packages detection rules, integration settings, and (optionally) configuration files into a reusable, versioned baseline.
 
-| Setting           | Default    | Range                     |
-| ----------------- | ---------- | ------------------------- |
-| `instance_name`   | `Rasadbin` | 1–64 chars                |
-| `log_level`       | `info`     | debug/info/warn/error     |
-| `session_minutes` | `60`       | 5–1440                    |
-| `retention_days`  | `30`       | 1–3650 (not enforced yet) |
-| `refresh_seconds` | `2`        | 1–60                      |
-
-### Integration State
-
-Enable/disable state and alerting toggles are persisted to `DATA_DIR/integrations.json`.
-
-Never store credentials or other secrets in a committed configuration file.
-
-## Detection Rules
-
-Detection rules will describe the events to match, the conditions to evaluate, and the resulting alert.
-
-Example planned rule:
-
-```yaml
-id: linux.ssh.bruteforce
-name: Repeated SSH authentication failures
-enabled: true
-
-source:
-  category: authentication
-  event_type: login_failed
-  service: sshd
-
-match:
-  group_by:
-    - host.name
-    - source.ip
-  threshold: 8
-  window: 2m
-
-severity: high
-
-alert:
-  title: Possible SSH brute-force attempt
+```text
+manifest.yaml
+rules/*.yaml|*.json
+integrations/*.yaml|*.json
+config/*.yaml|*.json
+README.md          (optional)
 ```
-
-This example defines the intended rule format. The rule engine, event field mappings, validation, aggregation, and alert generation must be implemented before the rule can execute.
 
 ## Security Considerations
 
@@ -393,64 +324,6 @@ Rasadbin is intended to handle sensitive system and network telemetry. Security 
 - Do not treat a successful health check as proof that the entire SIEM is functioning correctly.
 
 Packet visibility depends on the network interface and deployment topology. Capturing on an ordinary interface does not automatically expose traffic between other hosts. A network TAP, mirrored switch port, or suitable observation point may be required.
-
-### Authentication Notes
-
-- Users and sessions are held in memory only; they are lost on restart.
-- Passwords are hashed with PBKDF2-SHA256 (600,000 iterations).
-- Five failed attempts trigger a 5-minute lockout per IP (login) or per username (password change).
-- Changing a password revokes all sessions for that user.
-- Session tokens are stored in `sessionStorage` by the web client.
-
-## Project Structure
-
-```text
-rasadbin/
-├── cmd/
-│   └── app/
-│       ├── main.go          # CLI entry, HTTP server, graceful shutdown
-│       └── version.go       # Product name, command name, version
-├── internal/
-│   ├── collector/
-│   │   └── network/
-│   │       ├── collector_linux.go       # AF_PACKET capture (Linux)
-│   │       ├── collector_linux_test.go  # Ethernet/IPv4/TCP decoding tests
-│   │       └── collector_other.go       # Stub for non-Linux builds
-│   ├── config/
-│   │   ├── config.go        # Bootstrap config (flags/env/.env)
-│   │   └── env.go           # .env file loader
-│   └── web/
-│       ├── auth.go          # In-memory users, sessions, brute-force limits
-│       ├── hub.go           # WebSocket hub, events, stats
-│       ├── integrations.go  # Integration registry and persistence
-│       ├── integrations_test.go
-│       ├── server.go        # HTTP routes, static assets, network capture start
-│       ├── settings.go      # Runtime settings persistence
-│       └── ws.go            # WebSocket protocol (login, auth, dispatch)
-├── data/
-│   └── integrations.json    # Persisted integration state (generated)
-├── scripts/
-│   ├── build.sh             # Build with commit injection
-│   └── run_server.sh        # Run on 127.0.0.1:9090
-├── webui/
-│   ├── src/
-│   │   ├── components/      # RequireAuth, TopBar
-│   │   ├── lib/             # types.ts, ws.ts (WebSocket client)
-│   │   ├── pages/           # Dashboard, Integrations, IntegrationWorkspace, Login, Settings
-│   │   ├── App.tsx          # Routes
-│   │   ├── main.tsx
-│   │   └── styles.scss
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── vite.config.ts
-├── .env.example
-├── .gitignore
-├── go.mod
-└── README.md
-```
-
-Directories marked as planned in earlier versions (`internal/pipeline`, `internal/detection`, `internal/storage`, `internal/alert`, `internal/search`, `internal/api`, `configs/rules`, `deploy`, `migrations`, `tests`, `web`) do not exist yet.
 
 ## Design Principles
 
@@ -490,20 +363,3 @@ Add a `LICENSE` file before publishing a release or distributing the software. D
 Rasadbin is an early-stage security monitoring project. It is not yet a replacement for a mature production SIEM, endpoint detection platform, or network intrusion detection system.
 
 Use it initially in a controlled development or test environment. Validate detection coverage, event loss, access controls, and recovery behavior before relying on it for security-critical monitoring.
-
-## Built-in Integration Control Plane
-
-The Web UI includes an admin-only **Integrations** page. Built-in source definitions are persisted in `DATA_DIR/integrations.json` and can be enabled/disabled independently:
-
-- **Network packets** — AF_PACKET capture with L2–L4 protocol normalization; emits metadata-only events. Requires `CAP_NET_RAW`/root.
-- **systemd journal** — journal field normalization and host/auth/service detection packs (collector pending).
-- **Syslog files** — syslog parsing and SSH/sudo/kernel detection packs (collector pending).
-- **Service logs** — service-specific parser adapters and service-health detection packs (collector pending).
-
-Each integration exposes its collector, processor, detections, alerting switch, and a dedicated workspace route (`/integrations/<id>`). The WebSocket control messages are `integrations.get`, `integration.update`, and `integration.events`.
-
-## Initial Detection Engine
-
-Rules are loaded from `DATA_DIR/rules` (default `./data/rules`) on startup. Supported formats are YAML (`.yaml`, `.yml`) and JSON (`.json`). A rule supports `id`, `title`, `description`, `severity`, `enabled`, `sources`, `match_any`, `kind`, `threshold`, `window_seconds`, and `dedup_seconds`. Three starter rules are shipped in `data/rules/` and should be copied into the runtime data directory when deploying from a packaged binary.
-
-Alerts are emitted on the authenticated WebSocket stream as `{"type":"alert","data":...}` and can be requested with `{"type":"alerts.get"}`. Alert state is currently in memory; persistent alert storage, status workflow, and hot reload are TODOs. Port-scan detection counts distinct destination ports per source in the configured window; SSH/auth detections use matching authentication log messages.
