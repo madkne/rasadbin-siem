@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -68,6 +69,9 @@ func runCommand(args []string) error {
 	cfg, err := config.Load(args)
 	if err != nil {
 		return err
+	}
+	if cfg.MaxGoroutines > 0 {
+		runtime.GOMAXPROCS(cfg.MaxGoroutines)
 	}
 
 	// TODO: Load and validate application configuration.
@@ -243,6 +247,9 @@ func printWelcome(cfg config.Config) {
 	fmt.Printf("  Data dir      %s\n", cfg.DataDir)
 	fmt.Printf("  Env file      %s\n", cfg.EnvFile)
 	fmt.Printf("  Database      %s (%s)\n", cfg.DB.Driver, cfg.DB.DSN)
+	if cfg.MaxGoroutines > 0 {
+		fmt.Printf("  Max goroutines %d\n", cfg.MaxGoroutines)
+	}
 
 	if len(cfg.CaptureInterfaces) > 0 {
 		fmt.Printf("  Capture iface %s\n", cfg.CaptureInterfaces)
@@ -273,6 +280,7 @@ Run options (values usually come from .env; flags override):
   --data-dir          Directory for persisted settings (env DATA_DIR, default ./data)
   --webui-dir         Path to built web UI assets (env WEBUI_DIR, default webui/dist)
   --capture-interface Linux interface for packet capture (env CAPTURE_INTERFACE)
+  --max-goroutines    Maximum OS threads/goroutines to use (env MAX_GOROUTINES)
 
 Environment file:
   ENV_FILE   Path to .env (default ./.env; missing file is OK)

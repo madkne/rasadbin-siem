@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"path/filepath"
 	"strings"
 	"time"
@@ -41,6 +42,7 @@ type Config struct {
 	EnvFile           string   // path actually loaded, for logging
 	DB                DBConfig
 	SyslogPaths       []string
+	MaxGoroutines     int
 }
 
 const defaultSyslogPaths = "/var/log/auth.log,/var/log/syslog,/var/log/messages,/var/log/secure"
@@ -77,6 +79,8 @@ func Load(args []string) (Config, error) {
 		"gorm log level: silent|error|warn|info (overrides DB_LOG_LEVEL)")
 	syslogPaths := fs.String("syslog-paths", envOr("SYSLOG_PATHS", defaultSyslogPaths),
 		"comma-separated syslog files to tail (overrides SYSLOG_PATHS)")
+	maxGoroutines := fs.Int("max-goroutines", envInt("MAX_GOROUTINES", runtime.NumCPU()),
+		"maximum number of OS threads / goroutines to use (overrides MAX_GOROUTINES)")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
@@ -109,9 +113,13 @@ func Load(args []string) (Config, error) {
 		EnvFile:           envFile,
 		DB:                db,
 		SyslogPaths:       splitList(*syslogPaths),
+		MaxGoroutines:     *maxGoroutines,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
+	}
+	if cfg.MaxGoroutines > 0 {
+		runtime.GOMAXPROCS(cfg.MaxGoroutines)
 	}
 	return cfg, nil
 }
@@ -139,6 +147,9 @@ func (c Config) Validate() error {
 	case "silent", "error", "warn", "info":
 	default:
 		return errors.New("DB_LOG_LEVEL must be silent, error, warn or info")
+	}
+	if c.MaxGoroutines < 0 {
+		return errors.New("MAX_GOROUTINES must be zero or a positive integer")
 	}
 	return nil
 }

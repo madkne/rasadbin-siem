@@ -323,6 +323,7 @@ Loaded at startup from `.env`, the environment, and CLI flags. See `.env.example
 | `WEBUI_DIR`         | `--webui-dir`         | `webui/dist`        | Path to built web UI assets                 |
 | `ADMIN_PASSWORD`    |                       | (generated)         | Initial admin password (min. 10 characters) |
 | `CAPTURE_INTERFACE` | `--capture-interface` | (collector default) | Linux interface for packet capture          |
+| `MAX_GOROUTINES`    | `--max-goroutines`    | (NumCPU)            | Maximum OS threads/goroutines for the runtime |
 | `ENV_FILE`          |                       | `.env`              | Path to the environment file                |
 
 The `--listen` flag overrides `HTTP_HOST`/`HTTP_PORT` directly.
