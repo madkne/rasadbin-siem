@@ -16,7 +16,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [x] System log collection through `systemd-journald`.
 - [x] File-based syslog collection with rotation and truncation handling.
 - [x] Linux authentication and privilege-escalation event parsing (syslog heuristic severity).
-- [ ] Service-specific log parsers for Nginx, SSH, Docker, and other applications.
+- [x] Service-specific log parsers for Nginx, SSH, Docker, and other applications.
 - [ ] Configurable collection sources and filters.
 
 ### Event Processing

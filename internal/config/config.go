@@ -15,8 +15,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -43,9 +43,11 @@ type Config struct {
 	DB                DBConfig
 	SyslogPaths       []string
 	MaxGoroutines     int
+	ServiceLogPaths   []string
 }
 
 const defaultSyslogPaths = "/var/log/auth.log,/var/log/syslog,/var/log/messages,/var/log/secure"
+const defaultServiceLogPaths = "/var/log/nginx/access.log,/var/log/nginx/error.log"
 
 // Load resolves configuration from .env, the environment and args.
 // args is the argument slice passed to the `run` subcommand (without "run").
@@ -82,6 +84,9 @@ func Load(args []string) (Config, error) {
 	maxGoroutines := fs.Int("max-goroutines", envInt("MAX_GOROUTINES", runtime.NumCPU()),
 		"maximum number of OS threads / goroutines to use (overrides MAX_GOROUTINES)")
 
+	serviceLogPaths := fs.String("service-log-paths", envOr("SERVICE_LOG_PATHS", defaultServiceLogPaths),
+		"comma-separated service log files to tail (overrides SERVICE_LOG_PATHS)")
+
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -114,6 +119,7 @@ func Load(args []string) (Config, error) {
 		DB:                db,
 		SyslogPaths:       splitList(*syslogPaths),
 		MaxGoroutines:     *maxGoroutines,
+		ServiceLogPaths:   splitList(*serviceLogPaths),
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

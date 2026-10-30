@@ -14,18 +14,20 @@ import (
 
 	"rasadbin/internal/collector/journal"
 	"rasadbin/internal/collector/network"
+	"rasadbin/internal/collector/servicelog"
 	"rasadbin/internal/collector/syslog"
 	"rasadbin/internal/detection"
 )
 
 // Config configures the web UI.
 type Config struct {
-	DataDir       string
-	AdminPassword string // generated and printed to stderr when empty
-	Version       string
-	Commit        string
-	LogLevel      *slog.LevelVar // adjusted by the admin settings page
-	WebUIDir      string         // path to webui/dist (defaults to "webui/dist")
+	DataDir         string
+	AdminPassword   string // generated and printed to stderr when empty
+	Version         string
+	Commit          string
+	LogLevel        *slog.LevelVar // adjusted by the admin settings page
+	WebUIDir        string         // path to webui/dist (defaults to "webui/dist")
+	ServiceLogPaths []string
 }
 
 // Server is the web UI: pages, static assets and the WebSocket hub.
@@ -40,6 +42,7 @@ type Server struct {
 	networkCaptures  []*network.Collector
 	collectorManager *CollectorManager
 	detection        *detection.Engine
+	serviceLogPaths  []string
 }
 
 // New builds the web UI server.
@@ -104,12 +107,13 @@ func New(cfg Config) (*Server, error) {
 	}
 
 	srv := &Server{
-		hub:          NewHub(cfg.Version, cfg.Commit),
-		auth:         auth,
-		settings:     store,
-		integrations: integrations,
-		static:       static,
-		detection:    engine,
+		hub:             NewHub(cfg.Version, cfg.Commit),
+		auth:            auth,
+		settings:        store,
+		integrations:    integrations,
+		static:          static,
+		detection:       engine,
+		serviceLogPaths: cfg.ServiceLogPaths,
 	}
 	srv.integrations.notify = func(typ string, data any) {
 		srv.hub.Broadcast(typ, data)
@@ -312,6 +316,28 @@ func (s *Server) InitCollectorManager(ctx context.Context) error {
 			s.Publish(Event{
 				Time:     e.Time,
 				Source:   "systemd-journal",
+				Severity: e.Severity,
+				Message:  e.String(),
+			})
+		})
+		if err != nil {
+			return nil, err
+		}
+		return c.Run, nil
+	}); err != nil {
+		m.Close()
+		return err
+	}
+
+	if err := m.Register("service-logs", func() (CollectorRunner, error) {
+		paths := s.serviceLogPaths
+		if len(paths) == 0 {
+			paths = servicelog.DefaultPaths
+		}
+		c, err := servicelog.New(paths, func(e servicelog.Entry) {
+			s.Publish(Event{
+				Time:     e.Time,
+				Source:   "service-logs",
 				Severity: e.Severity,
 				Message:  e.String(),
 			})
