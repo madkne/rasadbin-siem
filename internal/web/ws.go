@@ -12,8 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/coder/websocket"
 	"rasadbin/internal/detection"
+
+	"github.com/coder/websocket"
 )
 
 const (
@@ -301,6 +302,27 @@ func (c *client) dispatch(env envelope) {
 		}
 		c.sendJSON("integration.events", map[string]any{"id": req.ID, "events": filtered})
 
+	case "profiles.get":
+		if c.requireAdmin(env.Type, sess) {
+			items, err := c.srv.profiles.List()
+			if err != nil {
+				c.sendError(env.Type, err.Error())
+			} else {
+				c.sendJSON("profiles", items)
+			}
+		}
+	case "profile.validate":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleProfileValidate(env.Data)
+		}
+	case "profile.install":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleProfileInstall(env.Data, sess)
+		}
+	case "profile.delete":
+		if c.requireAdmin(env.Type, sess) {
+			c.handleProfileDelete(env.Data, sess)
+		}
 	case "settings.get":
 		if c.requireAdmin(env.Type, sess) {
 			c.sendJSON("settings", c.srv.settings.Get())

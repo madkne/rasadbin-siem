@@ -17,6 +17,7 @@ import (
 	"rasadbin/internal/collector/servicelog"
 	"rasadbin/internal/collector/syslog"
 	"rasadbin/internal/detection"
+	"rasadbin/internal/profile"
 )
 
 // Config configures the web UI.
@@ -43,6 +44,7 @@ type Server struct {
 	collectorManager *CollectorManager
 	detection        *detection.Engine
 	serviceLogPaths  []string
+	profiles         *profile.Manager
 }
 
 // New builds the web UI server.
@@ -118,6 +120,13 @@ func New(cfg Config) (*Server, error) {
 	srv.integrations.notify = func(typ string, data any) {
 		srv.hub.Broadcast(typ, data)
 	}
+
+	profiles, err := newProfileManager(cfg.DataDir, engine, integrations, srv.collectorManager)
+	if err != nil {
+		return nil, fmt.Errorf("initialize security profiles: %w", err)
+	}
+	srv.profiles = profiles
+	
 	return srv, nil
 }
 
