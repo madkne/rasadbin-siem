@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"rasadbin/internal/collector/journal"
 	"rasadbin/internal/collector/network"
 	"rasadbin/internal/collector/syslog"
 	"rasadbin/internal/detection"
@@ -293,6 +294,24 @@ func (s *Server) InitCollectorManager(ctx context.Context) error {
 			s.Publish(Event{
 				Time:     e.Time,
 				Source:   "syslog-files",
+				Severity: e.Severity,
+				Message:  e.String(),
+			})
+		})
+		if err != nil {
+			return nil, err
+		}
+		return c.Run, nil
+	}); err != nil {
+		m.Close()
+		return err
+	}
+
+	if err := m.Register("systemd-journal", func() (CollectorRunner, error) {
+		c, err := journal.New(func(e journal.Entry) {
+			s.Publish(Event{
+				Time:     e.Time,
+				Source:   "systemd-journal",
 				Severity: e.Severity,
 				Message:  e.String(),
 			})

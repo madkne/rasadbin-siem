@@ -13,7 +13,7 @@ The project aims to provide a lightweight, extensible, and self-hosted security 
 - [x] Live network packet capture on Linux network interfaces (AF_PACKET, metadata only).
 - [x] TCP and UDP flow metadata extraction.
 - [ ] Offline PCAP processing for testing and investigation.
-- [ ] System log collection through `systemd-journald`.
+- [x] System log collection through `systemd-journald`.
 - [x] File-based syslog collection with rotation and truncation handling.
 - [x] Linux authentication and privilege-escalation event parsing (syslog heuristic severity).
 - [ ] Service-specific log parsers for Nginx, SSH, Docker, and other applications.
