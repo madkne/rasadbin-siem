@@ -8,6 +8,7 @@ import IntegrationWorkspace from "./pages/IntegrationWorkspace";
 import Discover from "./pages/Discover";
 import Alerts from "./pages/Alerts";
 import Rules from "./pages/Rules";
+import Profiles from "./pages/Profiles";
 
 export default function App() {
   return (
@@ -76,6 +77,15 @@ export default function App() {
         element={
           <RequireAuth>
             <Alerts />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/profiles"
+        element={
+          <RequireAuth requireAdmin>
+            <Profiles />
           </RequireAuth>
         }
       />

@@ -145,6 +145,10 @@ export interface WsMessageMap {
   login_failed: ErrorPayload;
   auth_ok: Identity;
   auth_failed: null;
+  profiles: InstalledProfile[];
+  "profile.validated": ProfilePreview;
+  "profile.installed": ProfileInstalledPayload;
+  "profile.deleted": ProfileDeletedPayload;
 }
 
 export interface DetectionRule {
@@ -159,4 +163,47 @@ export interface DetectionRule {
   window_seconds: number;
   dedup_seconds: number;
   kind: string;
+}
+
+
+// Security profile archive and installation API.
+export interface SecurityProfileMetadata {
+  id: string;
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  tags?: string[];
+}
+export interface SecurityProfileManifest {
+  apiVersion: string;
+  kind: string;
+  metadata: SecurityProfileMetadata;
+}
+export interface ProfileIntegration {
+  id: string;
+  enabled: boolean;
+  alerting?: boolean;
+}
+export interface ProfilePreview {
+  manifest: SecurityProfileManifest;
+  rules: string[];
+  integrations: ProfileIntegration[];
+  config_files: string[];
+  warnings: string[];
+}
+export interface InstalledProfile {
+  manifest: SecurityProfileManifest;
+  installed_at: string;
+  rule_ids: string[];
+  integrations: ProfileIntegration[];
+  previous_integrations?: Array<{ id: string; enabled: boolean; alerting: boolean }>;
+  config_files: string[];
+}
+export interface ProfileInstalledPayload {
+  profile: InstalledProfile;
+}
+export interface ProfileDeletedPayload {
+  id: string;
+  profiles: InstalledProfile[];
 }

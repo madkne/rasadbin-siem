@@ -91,6 +91,11 @@ export default function TopBar() {
             Integrations
           </Link>
         )}
+        {me?.role === "admin" && (
+          <Link to="/profiles" className={pathname.startsWith("/profiles") ? "active" : ""}>
+            Profiles
+          </Link>
+        )}
 
         {me?.role === "admin" && (
           <Link

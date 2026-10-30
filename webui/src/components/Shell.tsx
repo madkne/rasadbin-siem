@@ -9,6 +9,7 @@ const NAV = [
   { to: "/alerts", label: "Alerts", icon: "A", admin: false },
   { to: "/rules", label: "Rules", icon: "R", admin: true },
   { to: "/integrations", label: "Integrations", icon: "I", admin: true },
+  { to: "/profiles", label: "Profiles", icon: "P", admin: true },
   { to: "/settings", label: "Settings", icon: "T", admin: true },
 ];
 

@@ -62,7 +62,9 @@ class WebSocketClient {
       type === "subscribe" ||
       type === "unsubscribe" ||
       type.startsWith("settings.") ||
-      type.startsWith("password.")
+      type.startsWith("password.") ||
+      type.startsWith("profile.") ||
+      type === "profiles.get"
     ) {
       // Keep bounded, but don't queue credentials or commands across a new
       // socket/session. Authentication commands are sent only on an open socket.
