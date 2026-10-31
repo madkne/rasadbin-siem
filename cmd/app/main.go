@@ -278,6 +278,14 @@ func printWelcome(cfg config.Config) {
 func printUsage() {
 	fmt.Printf(`%[1]s %[2]s
 
+Usage:
+  %[3]s <command> [options]
+
+Commands:
+  run          Start the application server
+  version      Print version information
+  help         Show this help message
+
 Run options (values usually come from .env; flags override):
   --listen            HTTP listen address (env HTTP_HOST/HTTP_PORT, default 127.0.0.1:8080)
   --data-dir          Directory for persisted settings (env DATA_DIR, default ./data)
