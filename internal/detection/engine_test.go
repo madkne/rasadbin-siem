@@ -55,3 +55,45 @@ func TestPortScanRuleMatchesNetworkEvents(t *testing.T) {
 	}
 }
 func boolPtr(v bool) *bool { return &v }
+
+func TestNewAlertAfterDedupWindowGetsNewID(t *testing.T) {
+	dir := t.TempDir()
+	rule := `id: auth
+title: Auth failures
+severity: high
+sources: [syslog-files]
+match_any: ["Failed password"]
+kind: auth_failures
+threshold: 3
+window_seconds: 60
+dedup_seconds: 300
+`
+	if err := os.WriteFile(filepath.Join(dir, "auth.yaml"), []byte(rule), 0600); err != nil {
+		t.Fatal(err)
+	}
+	e, err := New(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now().UTC()
+	var firstID string
+	for i := 0; i < 4; i++ {
+		got := e.Process(Event{Time: start.Add(time.Duration(i) * time.Second), Source: "syslog-files", Message: "sshd: Failed password for root from 192.0.2.9"})
+		if i == 2 {
+			firstID = got[0].ID
+		}
+	}
+	var secondID string
+	for i := 0; i < 3; i++ {
+		got := e.Process(Event{Time: start.Add(400*time.Second + time.Duration(i)*time.Second), Source: "syslog-files", Message: "sshd: Failed password for root from 192.0.2.9"})
+		if i == 2 {
+			secondID = got[0].ID
+		}
+	}
+	if firstID == "" || secondID == "" || firstID == secondID {
+		t.Fatalf("expected a new alert ID after the dedup window: first=%q second=%q", firstID, secondID)
+	}
+	if len(e.Recent(10)) != 2 {
+		t.Fatalf("expected both alert records to remain, got %d", len(e.Recent(10)))
+	}
+}

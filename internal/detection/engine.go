@@ -25,18 +25,21 @@ type Event struct {
 }
 
 type Alert struct {
-	ID          string    `json:"id"`
-	RuleID      string    `json:"rule_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Severity    string    `json:"severity"`
-	FirstSeen   time.Time `json:"first_seen"`
-	LastSeen    time.Time `json:"last_seen"`
-	Count       int       `json:"count"`
-	Source      string    `json:"source"`
-	SourceIP    string    `json:"source_ip,omitempty"`
-	Evidence    []string  `json:"evidence,omitempty"`
-	Status      string    `json:"status"`
+	ID          string     `json:"id"`
+	RuleID      string     `json:"rule_id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Severity    string     `json:"severity"`
+	FirstSeen   time.Time  `json:"first_seen"`
+	LastSeen    time.Time  `json:"last_seen"`
+	Count       int        `json:"count"`
+	Source      string     `json:"source"`
+	SourceIP    string     `json:"source_ip,omitempty"`
+	Evidence    []string   `json:"evidence,omitempty"`
+	Status      string     `json:"status"`
+	Assignee    string     `json:"assignee,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at,omitempty"`
+	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`
 }
 
 type Rule struct {
@@ -60,17 +63,18 @@ type occurrence struct {
 }
 
 type Engine struct {
-	mu        sync.Mutex
-	rules     []Rule
-	history   map[string][]occurrence
-	alerts    map[string]Alert
-	order     []string
-	maxAlerts int
-	rulesDir  string
+	mu           sync.Mutex
+	rules        []Rule
+	history      map[string][]occurrence
+	alerts       map[string]Alert
+	activeAlerts map[string]string // rule/group -> current deduplication window alert ID
+	order        []string
+	maxAlerts    int
+	rulesDir     string
 }
 
 func New(rulesDir string) (*Engine, error) {
-	e := &Engine{history: map[string][]occurrence{}, alerts: map[string]Alert{}, maxAlerts: 5000, rulesDir: rulesDir}
+	e := &Engine{history: map[string][]occurrence{}, alerts: map[string]Alert{}, activeAlerts: map[string]string{}, maxAlerts: 5000, rulesDir: rulesDir}
 	if err := e.Reload(rulesDir); err != nil {
 		return nil, err
 	}
@@ -160,6 +164,7 @@ func (e *Engine) Reload(dir string) error {
 	e.rules = rules
 	e.rulesDir = dir
 	e.history = map[string][]occurrence{}
+	e.activeAlerts = map[string]string{}
 	e.mu.Unlock()
 	return nil
 }
@@ -174,6 +179,9 @@ func (e *Engine) Process(ev Event) []Alert {
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.activeAlerts == nil {
+		e.activeAlerts = make(map[string]string)
+	}
 	var out []Alert
 	for _, r := range e.rules {
 		if r.Enabled == nil || !*r.Enabled || !matches(r, ev) {
@@ -209,8 +217,8 @@ func (e *Engine) Process(ev Event) []Alert {
 			continue
 		}
 		sourceIP := extractSourceIP(ev.Message)
-		digest := sha256.Sum256([]byte(r.ID + "|" + group))
-		id := hex.EncodeToString(digest[:12])
+		activeKey := hkey
+		id := e.activeAlerts[activeKey]
 		a, exists := e.alerts[id]
 		if exists && ev.Time.Sub(a.LastSeen) <= time.Duration(r.DedupSeconds)*time.Second {
 			a.LastSeen = ev.Time
@@ -223,9 +231,12 @@ func (e *Engine) Process(ev Event) []Alert {
 			out = append(out, a)
 			continue
 		}
+		digest := sha256.Sum256([]byte(activeKey + "|" + ev.Time.UTC().Format(time.RFC3339Nano)))
+		id = hex.EncodeToString(digest[:12])
+		e.activeAlerts[activeKey] = id
 		a = Alert{ID: id, RuleID: r.ID, Title: r.Title, Description: r.Description,
 			Severity: r.Severity, FirstSeen: kept[0].at, LastSeen: ev.Time, Count: len(kept),
-			Source: ev.Source, SourceIP: sourceIP, Evidence: []string{truncate(ev.Message, 300)}, Status: "open"}
+			Source: ev.Source, SourceIP: sourceIP, Evidence: []string{truncate(ev.Message, 300)}, Status: "new"}
 		e.alerts[id] = a
 		e.order = append(e.order, id)
 		if len(e.order) > e.maxAlerts {

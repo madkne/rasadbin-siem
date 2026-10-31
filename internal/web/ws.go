@@ -215,7 +215,124 @@ func (c *client) dispatch(env envelope) {
 			c.sendJSON("integrations", c.srv.Integrations())
 		}
 	case "alerts.get":
-		c.sendJSON("alerts", c.srv.RecentAlerts(500))
+		var q AlertQuery
+		if len(env.Data) > 0 {
+			if err := decodeStrict(env.Data, &q); err != nil {
+				c.sendError(env.Type, "invalid alert query")
+				break
+			}
+		}
+		if c.srv.alertStore != nil {
+			ctx := c.srv.baseCtx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			items, total, err := c.srv.alertStore.ListAlerts(ctx, q)
+			if err != nil {
+				slog.Error("list alerts failed", "error", err)
+				c.sendError(env.Type, "could not load alerts")
+				break
+			}
+			c.sendJSON("alerts", items)
+			c.sendJSON("alerts.page", map[string]int{"total": total, "limit": q.Limit, "offset": q.Offset})
+		} else {
+			c.sendJSON("alerts", c.srv.RecentAlerts(500))
+		}
+
+	case "alert.update":
+		var req struct {
+			ID       string `json:"id"`
+			Status   string `json:"status"`
+			Assignee string `json:"assignee"`
+		}
+		if err := decodeStrict(env.Data, &req); err != nil || req.ID == "" {
+			c.sendError(env.Type, "invalid alert update")
+			break
+		}
+		if c.srv.alertStore == nil {
+			c.sendError(env.Type, "persistent alert storage is unavailable")
+			break
+		}
+		ctx := c.srv.baseCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		alert, err := c.srv.alertStore.UpdateAlert(ctx, req.ID, req.Status, req.Assignee, sess.Username)
+		if err != nil {
+			c.sendError(env.Type, err.Error())
+			break
+		}
+		c.srv.hub.Broadcast("alert.updated", alert)
+
+	case "alert.notes.get":
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := decodeStrict(env.Data, &req); err != nil || req.ID == "" {
+			c.sendError(env.Type, "invalid alert id")
+			break
+		}
+		if c.srv.alertStore == nil {
+			c.sendError(env.Type, "persistent alert storage is unavailable")
+			break
+		}
+		ctx := c.srv.baseCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		notes, err := c.srv.alertStore.ListAlertNotes(ctx, req.ID)
+		if err != nil {
+			c.sendError(env.Type, err.Error())
+			break
+		}
+		c.sendJSON("alert.notes", map[string]any{"alert_id": req.ID, "notes": notes})
+
+	case "alert.history.get":
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := decodeStrict(env.Data, &req); err != nil || req.ID == "" {
+			c.sendError(env.Type, "invalid alert id")
+			break
+		}
+		if c.srv.alertStore == nil {
+			c.sendError(env.Type, "persistent alert storage is unavailable")
+			break
+		}
+		ctx := c.srv.baseCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		history, err := c.srv.alertStore.ListAlertHistory(ctx, req.ID)
+		if err != nil {
+			c.sendError(env.Type, err.Error())
+			break
+		}
+		c.sendJSON("alert.history", map[string]any{"alert_id": req.ID, "history": history})
+
+	case "alert.note.add":
+		var req struct {
+			ID   string `json:"id"`
+			Body string `json:"body"`
+		}
+		if err := decodeStrict(env.Data, &req); err != nil || req.ID == "" {
+			c.sendError(env.Type, "invalid alert note")
+			break
+		}
+		if c.srv.alertStore == nil {
+			c.sendError(env.Type, "persistent alert storage is unavailable")
+			break
+		}
+		ctx := c.srv.baseCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		note, err := c.srv.alertStore.AddAlertNote(ctx, req.ID, sess.Username, req.Body)
+		if err != nil {
+			c.sendError(env.Type, err.Error())
+			break
+		}
+		c.sendJSON("alert.note.added", note)
 
 	case "match_terms.get", "match_terms", "rules.match_terms", "rule.match_terms", "rules.terms", "rule.terms", "terms.get":
 		if c.requireAdmin(env.Type, sess) {

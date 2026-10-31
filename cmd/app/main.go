@@ -128,11 +128,12 @@ func runCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("web UI: %w", err)
 	}
+	// Wire durable event and alert storage before collectors can emit data.
+	ui.SetStore(ctx, store, store)
 	if err := ui.InitCollectorManager(ctx); err != nil {
 		return fmt.Errorf("initialize collector manager: %w", err)
 	}
 	defer ui.CloseCollectors()
-	ui.SetStore(ctx, store, store)
 	go ui.Run(ctx)
 
 	// if err := ui.StartSyslogCollection(ctx, cfg.SyslogPaths); err != nil {

@@ -69,8 +69,11 @@ Import, validate, install, and remove reusable ZIP bundles of rules, integration
 - [x] SSH brute-force detection.
 - [x] Network port-scan detection.
 - [x] Repeated authentication-failure detection.
-- [x] In-memory alert generation, deduplication, severity, and open status.
-- [x] Live alert push over WebSocket.
+- [x] Rule-based alert generation, deduplication, and severity.
+- [x] Persistent alert records (SQLite/PostgreSQL/MySQL via GORM).
+- [x] Alert triage workflow: new, acknowledged, investigating, resolved, false positive.
+- [x] Analyst assignment, notes, and append-only activity history.
+- [x] Alert search/filtering and live WebSocket updates.
 - [ ] Service failure monitoring.
 - [ ] Time-window-based event aggregation.
 - [ ] Threshold-based detection.
@@ -81,7 +84,7 @@ Import, validate, install, and remove reusable ZIP bundles of rules, integration
 
 - [x] Dashboard with live stats, severity breakdown, heap chart, and event feed.
 - [x] Discover log explorer (query, severity/source/time filters, histogram, JSON export, live append).
-- [x] Alerts view with filters and evidence.
+- [x] Persistent Alerts workspace with filters, evidence, status workflow, assignment, notes, and activity history.
 - [x] Detection rules editor (admin).
 - [x] Integration control plane + per-integration workspace (admin).
 - [x] Security profile import/export (admin).

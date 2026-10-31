@@ -78,20 +78,6 @@ export interface SearchResult {
   took_ms: number;
 }
 
-export interface Alert {
-  id: string;
-  rule_id: string;
-  title: string;
-  description: string;
-  severity: string;
-  first_seen: string;
-  last_seen: string;
-  count: number;
-  source: string;
-  source_ip?: string;
-  evidence?: string[];
-  status: string;
-}
 
 export interface Integration {
   id: string;
@@ -124,6 +110,11 @@ export interface WsMessageMap {
   event: EventEntry;
   alert: Alert;
   alerts: Alert[];
+  "alerts.page": { total: number; limit: number; offset: number };
+  "alert.updated": Alert;
+  "alert.notes": { alert_id: string; notes: AlertNote[] };
+  "alert.history": { alert_id: string; history: AlertHistoryEntry[] };
+  "alert.note.added": AlertNote;
   integrations: Integration[];
   rules: DetectionRule[];
   "rule.saved": { rule: DetectionRule; rules: DetectionRule[] };
@@ -150,7 +141,47 @@ export interface WsMessageMap {
   "profile.installed": ProfileInstalledPayload;
   "profile.deleted": ProfileDeletedPayload;
 }
+export interface Alert {
+  id: string;
+  rule_id: string;
+  title: string;
+  description: string;
+  severity: string;
+  first_seen: string;
+  last_seen: string;
+  count: number;
+  source: string;
+  source_ip?: string;
+  evidence?: string[];
+  status:
+    | "new"
+    | "acknowledged"
+    | "investigating"
+    | "resolved"
+    | "false_positive";
+  assignee?: string;
+  updated_at?: string;
+  resolved_at?: string | null;
+}
 
+export interface AlertNote {
+  id: number;
+  alert_id: string;
+  author: string;
+  body: string;
+  created_at: string;
+}
+
+export interface AlertHistoryEntry {
+  id: number;
+  alert_id: string;
+  action: string;
+  from_status?: string;
+  to_status?: string;
+  actor?: string;
+  details?: string;
+  created_at: string;
+}
 export interface DetectionRule {
   id: string;
   title: string;

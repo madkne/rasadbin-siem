@@ -191,7 +191,7 @@ func dialectorFor(cfg config.DBConfig) (gorm.Dialector, error) {
 func containsQuery(dsn string) bool { return strings.Contains(dsn, "?") }
 
 func migrate(db *gorm.DB) error {
-	if err := db.AutoMigrate(&Event{}, &AuthUser{}, &AuthSession{}); err != nil {
+	if err := db.AutoMigrate(&Event{}, &AuthUser{}, &AuthSession{}, &AlertRecord{}, &AlertNote{}, &AlertHistory{}); err != nil {
 		return fmt.Errorf("auto migrate database: %w", err)
 	}
 	return nil

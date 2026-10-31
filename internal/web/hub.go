@@ -82,6 +82,45 @@ type EventStore interface {
 	Append(ctx context.Context, e Event) error
 }
 
+// AlertQuery bounds and filters persistent alert listings.
+type AlertQuery struct {
+	Search   string `json:"search"`
+	Severity string `json:"severity"`
+	Status   string `json:"status"`
+	Limit    int    `json:"limit"`
+	Offset   int    `json:"offset"`
+}
+
+// AlertNote is an analyst-authored comment attached to an alert.
+type AlertNote struct {
+	ID        uint      `json:"id"`
+	AlertID   string    `json:"alert_id"`
+	Author    string    `json:"author"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type AlertHistoryEntry struct {
+	ID         uint      `json:"id"`
+	AlertID    string    `json:"alert_id"`
+	Action     string    `json:"action"`
+	FromStatus string    `json:"from_status,omitempty"`
+	ToStatus   string    `json:"to_status,omitempty"`
+	Actor      string    `json:"actor,omitempty"`
+	Details    string    `json:"details,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// AlertStore is the durable alert workflow boundary implemented by storage.Store.
+type AlertStore interface {
+	UpsertAlert(context.Context, detection.Alert) (detection.Alert, error)
+	ListAlerts(context.Context, AlertQuery) ([]detection.Alert, int, error)
+	UpdateAlert(context.Context, string, string, string, string) (detection.Alert, error)
+	AddAlertNote(context.Context, string, string, string) (AlertNote, error)
+	ListAlertNotes(context.Context, string) ([]AlertNote, error)
+	ListAlertHistory(context.Context, string) ([]AlertHistoryEntry, error)
+}
+
 func NewHub(version, commit string) *Hub {
 	return &Hub{
 		clients: make(map[*client]struct{}),

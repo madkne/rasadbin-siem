@@ -41,6 +41,7 @@ type Server struct {
 	integrations     *IntegrationStore
 	static           fs.FS
 	store            EventQuerier
+	alertStore       AlertStore
 	baseCtx          context.Context
 	networkCaptures  []*network.Collector
 	collectorManager *CollectorManager
@@ -149,6 +150,9 @@ func (s *Server) SetStore(ctx context.Context, q EventQuerier, app EventStore) {
 	s.store = q
 	if app != nil {
 		s.hub.SetStore(app)
+		if alerts, ok := app.(AlertStore); ok {
+			s.alertStore = alerts
+		}
 	}
 }
 
@@ -173,14 +177,46 @@ func (s *Server) Publish(e Event) {
 				Time: processed.Time, Source: processed.Source,
 				Severity: processed.Severity, Message: processed.Message,
 			}) {
-				s.hub.PublishAlert(alert)
+				s.PublishAlert(alert)
 			}
 		}
 	}
 }
 
-// RecentAlerts returns the most recent in-memory alerts.
+// PublishAlert persists a detection result before notifying connected clients.
+func (s *Server) PublishAlert(alert detection.Alert) {
+	if s.alertStore != nil {
+		ctx := s.baseCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		persisted, err := s.alertStore.UpsertAlert(writeCtx, alert)
+		cancel()
+		if err != nil {
+			slog.Error("persist alert failed", "alert_id", alert.ID, "error", err)
+		} else {
+			alert = persisted
+		}
+	}
+	s.hub.PublishAlert(alert)
+}
+
+// RecentAlerts reads durable alerts when storage is configured, otherwise it
+// falls back to the in-memory engine for tests and embedded use.
 func (s *Server) RecentAlerts(limit int) []detection.Alert {
+	if s.alertStore != nil {
+		ctx := s.baseCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		items, _, err := s.alertStore.ListAlerts(ctx, AlertQuery{Limit: limit})
+		if err != nil {
+			slog.Error("load alerts failed", "error", err)
+			return nil
+		}
+		return items
+	}
 	if s.detection == nil {
 		return nil
 	}
