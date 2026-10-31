@@ -1,0 +1,102 @@
+name: Create Release from Branch
+
+on:
+  push:
+    branches:
+      - "Release-v[0-9]*.[0-9]*.[0-9]*"
+
+permissions:
+  contents: write # Required to create releases
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.2"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webui/package-lock.json
+
+      - name: Build Web UI
+        working-directory: webui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify build output
+        run: |
+          test -f webui/dist/index.html || (echo "webui/dist/index.html missing" && exit 1)
+
+      - name: Install Go dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+        run: go build -v ./...
+
+      - name: Test
+        env:
+          CGO_ENABLED: "1"
+        run: go test -v ./...
+
+      - name: Build application binary
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          mkdir -p build
+          COMMIT="$(git rev-parse --short HEAD)"
+          go build \
+            -ldflags "-X main.commit=${COMMIT}" \
+            -o build/rasadbin \
+            ./cmd/app
+          ./build/rasadbin version
+
+      - name: Upload binary (artifact, optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rasadbin-linux-amd64
+          path: build/rasadbin
+          if-no-files-found: error
+
+      - name: Extract Version from Branch Name
+        id: extract_version
+        run: |
+          # GITHUB_REF_NAME will be something like "Release-v0.1.1"
+          BRANCH_NAME="${{ github.ref_name }}"
+          # Remove the "Release-" prefix to get "v0.1.1"
+          VERSION="${BRANCH_NAME#Release-}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Package webui dist
+        run: |
+          cd webui && zip -r ../build/webui-dist.zip dist && cd ..
+
+      - name: Create GitHub Release
+        if: github.event.created == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.extract_version.outputs.version }}" \
+          build/rasadbin \
+          build/webui-dist.zip \
+          --title "Release ${{ steps.extract_version.outputs.version }}" \
+          --generate-notes \
+          --target "${{ github.sha }}"
