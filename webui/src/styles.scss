@@ -1863,6 +1863,8 @@ button.danger-ghost {
   .discover-querybar {
     flex-direction: column;
     align-items: stretch;
+    padding: 0.75rem;
+    gap: 0.5rem;
   }
   .discover-querybar select,
   .discover-querybar input[type="datetime-local"] {
@@ -1870,6 +1872,18 @@ button.danger-ghost {
   }
   .discover-search-input {
     flex: 1 1 auto;
+    width: 100%;
+  }
+  .discover-querybar button {
+    width: 100%;
+  }
+  .discover-sources {
+    gap: 0.35rem;
+  }
+  .sort-toggle {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
   }
   .discover-layout {
     grid-template-columns: 1fr;
@@ -1877,6 +1891,28 @@ button.danger-ghost {
   .discover-fields {
     position: static;
     max-height: none;
+  }
+  .discover-histogram .bars {
+    height: 70px;
+  }
+  .histogram-meta {
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-start;
+  }
+  .discover-results .table-wrap {
+    overflow-x: auto;
+  }
+  .discover-results table {
+    min-width: 600px;
+  }
+  .discover-page {
+    padding: 0.9rem 0.75rem 2rem;
+  }
+  .page-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
   .severity-bar-row {
     grid-template-columns: 80px 1fr 32px;
