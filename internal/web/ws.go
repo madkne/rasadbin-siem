@@ -608,6 +608,7 @@ func (c *client) handleSettingsUpdate(raw json.RawMessage, sess *Session) {
 		"active_enrichment_enabled", next.ActiveEnrichmentEnabled,
 		"active_enrichment_cidrs", next.ActiveEnrichmentCIDRs)
 	c.sendJSON("settings_saved", next)
+	c.srv.TriggerRetention() // apply a new retention value immediately
 }
 
 func (c *client) handlePasswordChange(raw json.RawMessage, sess *Session) {

@@ -8,8 +8,13 @@ import { Label } from "../components/ui/label";
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsT | null>(null);
-  const [settingsMsg, setSettingsMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [settingsMsg, setSettingsMsg] = useState<{
+    text: string;
+    ok: boolean;
+  } | null>(null);
+  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -55,7 +60,10 @@ export default function Settings() {
       retention_days: Number(f.get("retention_days")),
       refresh_seconds: Number(f.get("refresh_seconds")),
       active_enrichment_enabled: f.get("active_enrichment_enabled") === "on",
-      active_enrichment_cidrs: String(f.get("active_enrichment_cidrs") || "").split(/[\n,]+/).map((v) => v.trim()).filter(Boolean),
+      active_enrichment_cidrs: String(f.get("active_enrichment_cidrs") || "")
+        .split(/[\n,]+/)
+        .map((v) => v.trim())
+        .filter(Boolean),
     });
   }
 
@@ -102,12 +110,19 @@ export default function Settings() {
                   <p className="eyebrow">INSTANCE</p>
                   <h2>General</h2>
                 </div>
-                {dirty && <span className="settings-dirty">Unsaved changes</span>}
+                {dirty && (
+                  <span className="settings-dirty">Unsaved changes</span>
+                )}
               </div>
               <form
                 onSubmit={saveSettings}
                 onChange={() => setDirty(true)}
-                key={settings.instance_name + settings.log_level + String(settings.active_enrichment_enabled) + (settings.active_enrichment_cidrs ?? []).join(",")}
+                key={
+                  settings.instance_name +
+                  settings.log_level +
+                  String(settings.active_enrichment_enabled) +
+                  (settings.active_enrichment_cidrs ?? []).join(",")
+                }
               >
                 <div className="settings-grid">
                   <div className="settings-field">
@@ -143,7 +158,9 @@ export default function Settings() {
                   </div>
 
                   <div className="settings-field">
-                    <Label htmlFor="session_minutes">Session timeout (minutes)</Label>
+                    <Label htmlFor="session_minutes">
+                      Session timeout (minutes)
+                    </Label>
                     <Input
                       id="session_minutes"
                       name="session_minutes"
@@ -153,11 +170,15 @@ export default function Settings() {
                       required
                       defaultValue={settings.session_minutes}
                     />
-                    <span className="settings-hint">5–1440 minutes of inactivity.</span>
+                    <span className="settings-hint">
+                      5–1440 minutes of inactivity.
+                    </span>
                   </div>
 
                   <div className="settings-field">
-                    <Label htmlFor="retention_days">Event retention (days)</Label>
+                    <Label htmlFor="retention_days">
+                      Event retention (days)
+                    </Label>
                     <Input
                       id="retention_days"
                       name="retention_days"
@@ -167,11 +188,16 @@ export default function Settings() {
                       required
                       defaultValue={settings.retention_days}
                     />
-                    <span className="settings-hint">1–3650 days of stored events.</span>
+                    <span className="settings-hint">
+                      1–3650 days. Older events are deleted automatically every
+                      hour.
+                    </span>
                   </div>
 
                   <div className="settings-field">
-                    <Label htmlFor="refresh_seconds">Dashboard refresh (seconds)</Label>
+                    <Label htmlFor="refresh_seconds">
+                      Dashboard refresh (seconds)
+                    </Label>
                     <Input
                       id="refresh_seconds"
                       name="refresh_seconds"
@@ -181,29 +207,60 @@ export default function Settings() {
                       required
                       defaultValue={settings.refresh_seconds}
                     />
-                    <span className="settings-hint">1–60 seconds between pushes.</span>
+                    <span className="settings-hint">
+                      1–60 seconds between pushes.
+                    </span>
                   </div>
                 </div>
 
-                <div className="settings-panel-head" style={{ marginTop: "1.5rem" }}>
+                <div
+                  className="settings-panel-head"
+                  style={{ marginTop: "1.5rem" }}
+                >
                   <div>
                     <p className="eyebrow">OT / IT SAFETY</p>
                     <h2>Active enrichment permission</h2>
                     <p className="muted settings-note">
-                      Passive enrichment is always preferred. Active probes are disabled by default and may only target IPs inside the explicit CIDR allowlist below. No active probes are enabled by this release.
+                      Passive enrichment is always preferred. Active probes are
+                      disabled by default and may only target IPs inside the
+                      explicit CIDR allowlist below. No active probes are
+                      enabled by this release.
                     </p>
                   </div>
                 </div>
                 <div className="settings-grid">
                   <div className="settings-field">
-                    <Label htmlFor="active_enrichment_enabled">Allow active enrichment</Label>
-                    <Input id="active_enrichment_enabled" name="active_enrichment_enabled" type="checkbox" defaultChecked={settings.active_enrichment_enabled} />
-                    <span className="settings-hint">Explicit administrative permission for future active providers. Default: disabled.</span>
+                    <Label htmlFor="active_enrichment_enabled">
+                      Allow active enrichment
+                    </Label>
+                    <Input
+                      id="active_enrichment_enabled"
+                      name="active_enrichment_enabled"
+                      type="checkbox"
+                      defaultChecked={settings.active_enrichment_enabled}
+                    />
+                    <span className="settings-hint">
+                      Explicit administrative permission for future active
+                      providers. Default: disabled.
+                    </span>
                   </div>
                   <div className="settings-field">
-                    <Label htmlFor="active_enrichment_cidrs">Allowed target CIDRs</Label>
-                    <textarea id="active_enrichment_cidrs" name="active_enrichment_cidrs" rows={3} defaultValue={(settings.active_enrichment_cidrs || []).join("\n")} placeholder="192.168.10.0/24\n10.20.0.0/16" />
-                    <span className="settings-hint">One CIDR per line. Enabling active enrichment without an allowlist is rejected.</span>
+                    <Label htmlFor="active_enrichment_cidrs">
+                      Allowed target CIDRs
+                    </Label>
+                    <textarea
+                      id="active_enrichment_cidrs"
+                      name="active_enrichment_cidrs"
+                      rows={3}
+                      defaultValue={(
+                        settings.active_enrichment_cidrs || []
+                      ).join("\n")}
+                      placeholder="192.168.10.0/24\n10.20.0.0/16"
+                    />
+                    <span className="settings-hint">
+                      One CIDR per line. Enabling active enrichment without an
+                      allowlist is rejected.
+                    </span>
                   </div>
                 </div>
 
@@ -258,7 +315,9 @@ export default function Settings() {
                       maxLength={128}
                       required
                     />
-                    <span className="settings-hint">Minimum 10 characters.</span>
+                    <span className="settings-hint">
+                      Minimum 10 characters.
+                    </span>
                   </div>
                   <div className="settings-field">
                     <Label htmlFor="repeat">Repeat new password</Label>

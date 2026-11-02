@@ -55,6 +55,11 @@ type Server struct {
 	captureIfaces    []string
 	assets           *asset.Service
 	enrichment       *enrichment.Engine
+	pruner           EventPruner
+	pruneNow         chan struct{}
+}
+type EventPruner interface {
+	PruneBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 // New builds the web UI server.
@@ -136,6 +141,7 @@ func New(cfg Config) (*Server, error) {
 		detection:       engine,
 		serviceLogPaths: cfg.ServiceLogPaths,
 		captureIfaces:   cfg.CaptureInterfaces,
+		pruneNow:        make(chan struct{}, 1),
 	}
 	srv.integrations.notify = func(typ string, data any) {
 		srv.hub.Broadcast(typ, data)
@@ -183,6 +189,9 @@ func (s *Server) SetStore(ctx context.Context, q EventQuerier, app EventStore) {
 		if alerts, ok := app.(AlertStore); ok {
 			s.alertStore = alerts
 		}
+		if p, ok := app.(EventPruner); ok {
+			s.pruner = p
+		}
 		if st, ok := app.(asset.Store); ok {
 			if err := s.assets.Attach(ctx, st); err != nil {
 				slog.Error("load assets failed", "error", err)
@@ -203,6 +212,7 @@ func (s *Server) Run(ctx context.Context) {
 	if s.enrichment != nil {
 		go s.enrichment.Run(ctx)
 	}
+	go s.runRetention(ctx)
 	s.hub.Run(ctx, func() time.Duration {
 		return time.Duration(s.settings.Get().RefreshSeconds) * time.Second
 	}, s.auth)
@@ -526,5 +536,57 @@ func (s *Server) InitCollectorManager(ctx context.Context) error {
 func (s *Server) CloseCollectors() {
 	if s.collectorManager != nil {
 		s.collectorManager.Close()
+	}
+}
+
+const retentionInterval = time.Hour
+
+// runRetention deletes events older than Settings.RetentionDays once at
+// startup, then every hour. The value is read on every run, so changes in
+// the settings page apply without a restart.
+func (s *Server) runRetention(ctx context.Context) {
+	if s.pruner == nil {
+		return
+	}
+	s.pruneOnce(ctx)
+	t := time.NewTicker(retentionInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.pruneOnce(ctx)
+		case <-s.pruneNow:
+			s.pruneOnce(ctx)
+		}
+	}
+}
+
+func (s *Server) pruneOnce(ctx context.Context) {
+	days := s.settings.Get().RetentionDays
+	if days < 1 {
+		return
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	wctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	n, err := s.pruner.PruneBefore(wctx, cutoff)
+	if err != nil {
+		if ctx.Err() == nil {
+			slog.Error("event retention failed", "error", err)
+		}
+		return
+	}
+	if n > 0 {
+		slog.Info("old events pruned", "deleted", n, "retention_days", days, "cutoff", cutoff)
+	}
+}
+
+// TriggerRetention requests an immediate (non-blocking) prune run.
+func (s *Server) TriggerRetention() {
+	select {
+	case s.pruneNow <- struct{}{}:
+	default:
 	}
 }

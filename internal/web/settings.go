@@ -19,7 +19,7 @@ type Settings struct {
 	InstanceName            string   `json:"instance_name"`
 	LogLevel                string   `json:"log_level"`                 // debug | info | warn | error
 	SessionMinutes          int      `json:"session_minutes"`           // 5..1440
-	RetentionDays           int      `json:"retention_days"`            // 1..3650 (not enforced yet)
+	RetentionDays           int      `json:"retention_days"`            // 1..3650; events older than this are deleted hourly
 	RefreshSeconds          int      `json:"refresh_seconds"`           // 1..60 dashboard push interval
 	ActiveEnrichmentEnabled bool     `json:"active_enrichment_enabled"` // explicit opt-in; defaults false
 	ActiveEnrichmentCIDRs   []string `json:"active_enrichment_cidrs"`   // active probes are restricted to these ranges

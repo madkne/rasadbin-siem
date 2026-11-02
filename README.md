@@ -104,7 +104,7 @@ Import, validate, install, and remove reusable ZIP bundles of rules, integration
 - [x] Graceful shutdown with store drain.
 - [x] Configurable runtime settings (persisted to `DATA_DIR/settings.json`).
 - [ ] Metrics endpoint.
-- [ ] Enforced event retention (setting persisted, enforcement pending).
+- [x] Enforced event retention (setting persisted, enforcement pending).
 - [ ] systemd unit / packaging.
 
 ## Architecture
