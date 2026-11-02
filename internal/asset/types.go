@@ -52,6 +52,7 @@ type Asset struct {
 	EnrichmentEvidence []EnrichmentEvidence `json:"enrichment_evidence"`
 	FirstSeen          time.Time            `json:"first_seen"`
 	LastSeen           time.Time            `json:"last_seen"`
+	Archived           bool                 `json:"archived,omitempty"`
 	EventCount         int64                `json:"event_count"`
 }
 

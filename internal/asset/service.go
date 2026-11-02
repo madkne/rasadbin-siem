@@ -403,6 +403,9 @@ func (s *Service) List(f Filter) ([]Asset, int) {
 		if f.Origin != "" && a.Origin != f.Origin {
 			continue
 		}
+		if a.Archived {
+			continue
+		}
 		if f.Source != "" && !contains(a.Sources, f.Source) {
 			continue
 		}
@@ -486,9 +489,62 @@ func (s *Service) Flush(ctx context.Context) error {
 	return nil
 }
 
+// ArchiveDuplicates marks all but the most recently seen asset as archived when
+// multiple assets share an IP or hostname. Returns the number archived.
+func (s *Service) ArchiveDuplicates() int {
+	if s == nil {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// group by shared key
+	groups := map[string][]string{}
+	for id, a := range s.assets {
+		if a.Archived {
+			continue
+		}
+		keys := []string{}
+		for _, ip := range a.IPs {
+			keys = append(keys, "ip:"+ip)
+		}
+		if a.Hostname != "" {
+			keys = append(keys, "host:"+a.Hostname)
+		}
+		for _, k := range keys {
+			groups[k] = append(groups[k], id)
+		}
+	}
+	toArchive := map[string]bool{}
+	for _, ids := range groups {
+		if len(ids) < 2 {
+			continue
+		}
+		// keep most recently seen
+		keep := ids[0]
+		for _, id := range ids[1:] {
+			if s.assets[id].LastSeen.After(s.assets[keep].LastSeen) {
+				keep = id
+			}
+		}
+		for _, id := range ids {
+			if id != keep {
+				toArchive[id] = true
+			}
+		}
+	}
+	n := 0
+	for id := range toArchive {
+		if a := s.assets[id]; a != nil && !a.Archived {
+			a.Archived = true
+			s.dirty[id] = struct{}{}
+			n++
+		}
+	}
+	return n
+}
+
 func clone(a Asset) Asset {
 	a.IPs = append([]string{}, a.IPs...)
-	a.Ports = append([]int{}, a.Ports...)
 	a.Sources = append([]string{}, a.Sources...)
 	a.Tags = append([]string{}, a.Tags...)
 	a.MACAddresses = append([]string{}, a.MACAddresses...)

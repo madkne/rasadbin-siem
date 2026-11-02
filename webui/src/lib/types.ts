@@ -273,6 +273,7 @@ export interface Asset {
   enrichment_evidence: { field: string; value: string; source: string; confidence: number; observed_at: string }[];
   first_seen: string;
   last_seen: string;
+  archived?: boolean;
   event_count: number;
 }
 export interface TopologyLink {
