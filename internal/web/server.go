@@ -20,6 +20,7 @@ import (
 	"rasadbin/internal/collector/syslog"
 	"rasadbin/internal/detection"
 	"rasadbin/internal/profile"
+	"strings"
 	"time"
 )
 
@@ -299,23 +300,41 @@ func (s *Server) Integrations() []Integration { return s.integrations.List() }
 // takes over in the browser.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-
+	// root
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard", http.StatusFound)
 	})
 
 	index := s.page()
-	for _, name := range []string{"login", "dashboard", "settings", "integrations", "events", "alerts", "rules", "network", "systemd", "syslog", "services"} {
+	// exact app pages
+	for _, name := range []string{"login", "dashboard", "settings", "integrations", "events", "alerts", "rules", "network", "systemd", "syslog", "services", "assetsman", "topology"} {
 		mux.HandleFunc("GET /"+name, index)
 	}
 
 	// Static assets built by Vite (JS, CSS, etc.).
 	mux.Handle("GET /assets/", http.FileServerFS(s.static))
-	mux.Handle("GET /topology/", http.FileServerFS(s.static))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(s.static)))
 
 	mux.HandleFunc("GET /ws", s.serveWS)
+	// SPA fallback for refresh / deep link navigation
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/ws" || strings.HasPrefix(r.URL.Path, "/assets/") ||
+			strings.HasPrefix(r.URL.Path, "/static/") ||
+			strings.HasPrefix(r.URL.Path, "/topology/") {
+			http.NotFound(w, r)
+			return
+		}
 
+		// serve index for client-side routes
+		b, err := fs.ReadFile(s.static, "index.html")
+		if err != nil {
+			http.Error(w, "web UI not built", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(b)
+	})
 	return secureHeaders(mux)
 }
 

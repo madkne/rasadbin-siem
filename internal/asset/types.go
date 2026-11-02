@@ -88,10 +88,11 @@ type EnrichmentResult struct {
 
 // Filter narrows List results. All fields are optional.
 type Filter struct {
-	Search string `json:"search"`
-	Source string `json:"source"`
-	Origin string `json:"origin"`
-	Limit  int    `json:"limit"`
+	Search   string `json:"search"`
+	Source   string `json:"source"`
+	Origin   string `json:"origin"`
+	Limit    int    `json:"limit"`
+	Archived bool   `json:"archived"`
 }
 
 // Store is the durability boundary, implemented by internal/storage.

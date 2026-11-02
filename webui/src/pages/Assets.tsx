@@ -21,13 +21,14 @@ export default function Assets() {
   const [search, setSearch] = useState("");
   const [source, setSource] = useState("");
   const [origin, setOrigin] = useState("");
+  const [archived, setArchived] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
   const load = useCallback(() => {
     setError("");
-    ws.send("assets.get", { limit: 2000 });
-  }, []);
+    ws.send("assets.get", { limit: 2000, archived });
+  }, [archived]);
 
   useEffect(() => {
     const offReady = ws.on("ready", load);
@@ -157,6 +158,14 @@ export default function Assets() {
             <option value="discovered">Discovered</option>
             <option value="manual">Manual</option>
           </select>
+          <button
+            type="button"
+            className={archived ? "ghost active" : "ghost"}
+            onClick={() => setArchived((v) => !v)}
+            aria-pressed={archived}
+          >
+            {archived ? "Show active" : "Show archived"}
+          </button>
           <button type="button" className="ghost" onClick={load}>
             Refresh
           </button>

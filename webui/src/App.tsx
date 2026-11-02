@@ -84,7 +84,7 @@ export default function App() {
       />
 
       <Route
-        path="/assets"
+        path="/assetsman"
         element={
           <RequireAuth>
             <Assets />

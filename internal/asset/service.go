@@ -403,8 +403,14 @@ func (s *Service) List(f Filter) ([]Asset, int) {
 		if f.Origin != "" && a.Origin != f.Origin {
 			continue
 		}
-		if a.Archived {
-			continue
+		if f.Archived {
+			if !a.Archived {
+				continue
+			}
+		} else {
+			if a.Archived {
+				continue
+			}
 		}
 		if f.Source != "" && !contains(a.Sources, f.Source) {
 			continue
