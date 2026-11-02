@@ -70,7 +70,7 @@ export default function Assets() {
       if (source && !(a.sources ?? []).includes(source)) return false;
       if (origin && a.origin !== origin) return false;
       if (!q) return true;
-      return `${a.name} ${a.hostname ?? ""} ${(a.ips ?? []).join(" ")} ${(a.tags ?? []).join(" ")}`
+      return `${a.name} ${a.hostname ?? ""} ${(a.ips ?? []).join(" ")} ${(a.mac_addresses ?? []).join(" ")} ${(a.services ?? []).map((v) => v.name).join(" ")} ${(a.protocols ?? []).join(" ")} ${(a.tags ?? []).join(" ")}`
         .toLowerCase()
         .includes(q);
     });
@@ -229,19 +229,14 @@ export default function Assets() {
                         </td>
                         <td>
                           <span className="asset-chips">
-                            {(a.ports ?? []).slice(0, 5).map((p) => (
-                              <span key={p} className="asset-chip">
-                                {p}
+                            {(a.services ?? []).length > 0 ? (a.services ?? []).slice(0, 4).map((svc) => (
+                              <span key={`${svc.transport}-${svc.port}-${svc.name}`} className="asset-chip" title={`${svc.protocol ?? "unknown"} · confidence ${Math.round(svc.confidence * 100)}%`}>
+                                {svc.name} :{svc.port}
                               </span>
+                            )) : (a.ports ?? []).slice(0, 5).map((p) => (
+                              <span key={p} className="asset-chip">{p}</span>
                             ))}
-                            {(a.ports ?? []).length > 5 && (
-                              <span className="muted">
-                                +{a.ports.length - 5}
-                              </span>
-                            )}
-                            {(a.ports ?? []).length === 0 && (
-                              <span className="muted">—</span>
-                            )}
+                            {(a.services ?? []).length === 0 && (a.ports ?? []).length === 0 && <span className="muted">—</span>}
                           </span>
                         </td>
                         <td>
@@ -258,6 +253,13 @@ export default function Assets() {
                       {open && (
                         <tr className="discover-doc">
                           <td colSpan={6}>
+                            <div className="asset-enrichment-summary">
+                              <strong>Enrichment: {a.enrichment_status || "not started"}</strong>
+                              {a.mac_addresses?.length ? <p>MAC: {a.mac_addresses.join(", ")}</p> : null}
+                              {a.protocols?.length ? <p>Protocols: {a.protocols.join(", ")}</p> : null}
+                              {a.enrichment_error ? <p className="msg error">{a.enrichment_error}</p> : null}
+                              {a.enrichment_evidence?.length ? <p>Evidence: {a.enrichment_evidence.length} records</p> : null}
+                            </div>
                             <pre>{JSON.stringify(a, null, 2)}</pre>
                           </td>
                         </tr>

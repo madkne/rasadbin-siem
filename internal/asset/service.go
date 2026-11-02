@@ -129,7 +129,8 @@ func (s *Service) Run(ctx context.Context) {
 }
 
 // ObserveEvent derives assets from one collected event. Unknown sources and
-// unparseable messages are ignored.
+// unparseable messages are ignored. Port fingerprints are only recorded from
+// SYN-ACK packets; a bare SYN is not evidence that a service is listening.
 func (s *Service) ObserveEvent(source, message string, at time.Time) {
 	if s == nil {
 		return
@@ -173,7 +174,8 @@ func (s *Service) apply(source string, o observation, at time.Time) {
 			s.dropped++
 			return
 		}
-		a = &Asset{ID: id, Origin: OriginDiscovered, Name: name, FirstSeen: at, LastSeen: at}
+		a = &Asset{ID: id, Origin: OriginDiscovered, Name: name, FirstSeen: at, LastSeen: at,
+			EnrichmentStatus: "pending"}
 		s.assets[id] = a
 	}
 	if at.After(a.LastSeen) {
@@ -187,11 +189,22 @@ func (s *Service) apply(source string, o observation, at time.Time) {
 	if o.ip != "" {
 		a.IPs = addUnique(a.IPs, o.ip, maxIPsPerAsset)
 	}
+	if o.mac != "" {
+		before := len(a.MACAddresses)
+		a.MACAddresses = addUnique(a.MACAddresses, o.mac, 8)
+		if len(a.MACAddresses) != before {
+			a.EnrichmentStatus = "pending"
+		}
+	}
 	if o.hostname != "" && a.Hostname == "" {
 		a.Hostname = o.hostname
 	}
 	if o.port > 0 {
+		before := len(a.Ports)
 		a.Ports = addPort(a.Ports, o.port, s.opts.MaxPorts)
+		if len(a.Ports) != before {
+			a.EnrichmentStatus = "pending"
+		}
 	}
 	s.dirty[id] = struct{}{}
 }
@@ -271,6 +284,110 @@ func (s *Service) AddManual(in Asset) (Asset, error) {
 	a.Sources = addUnique(a.Sources, SourceManual, 8)
 	s.dirty[id] = struct{}{}
 	return clone(*a), nil
+}
+
+// Get returns a detached asset snapshot.
+func (s *Service) Get(id string) (Asset, bool) {
+	if s == nil {
+		return Asset{}, false
+	}
+	s.mu.RLock()
+	a := s.assets[id]
+	if a == nil {
+		s.mu.RUnlock()
+		return Asset{}, false
+	}
+	out := clone(*a)
+	s.mu.RUnlock()
+	return out, true
+}
+
+// Snapshot returns detached inventory snapshots for background schedulers.
+func (s *Service) Snapshot() []Asset {
+	if s == nil {
+		return []Asset{}
+	}
+	s.mu.RLock()
+	out := make([]Asset, 0, len(s.assets))
+	for _, a := range s.assets {
+		out = append(out, clone(*a))
+	}
+	s.mu.RUnlock()
+	return out
+}
+
+// MarkEnriching updates only enrichment-owned metadata.
+func (s *Service) MarkEnriching(id string) (Asset, bool) {
+	if s == nil {
+		return Asset{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.assets[id]
+	if a == nil {
+		return Asset{}, false
+	}
+	a.EnrichmentStatus = "enriching"
+	a.EnrichmentError = ""
+	s.dirty[id] = struct{}{}
+	return clone(*a), true
+}
+
+// CompleteEnrichment merges evidence without overwriting analyst-managed
+// Name, Tags or Criticality. Existing non-empty identity fields are preserved.
+func (s *Service) CompleteEnrichment(id string, result EnrichmentResult, status, message string, attempts int, next time.Time) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.assets[id]
+	if a == nil {
+		return false
+	}
+	if a.Hostname == "" && result.Hostname != "" {
+		a.Hostname = result.Hostname
+	}
+	for _, mac := range result.MACAddresses {
+		a.MACAddresses = addUnique(a.MACAddresses, mac, 8)
+	}
+	for _, proto := range result.Protocols {
+		a.Protocols = addUnique(a.Protocols, proto, 32)
+	}
+	for _, svc := range result.Services {
+		found := false
+		for i := range a.Services {
+			if a.Services[i].Port == svc.Port && a.Services[i].Transport == svc.Transport && a.Services[i].Name == svc.Name {
+				if svc.Confidence > a.Services[i].Confidence {
+					a.Services[i] = svc
+				}
+				found = true
+				break
+			}
+		}
+		if !found && len(a.Services) < 128 {
+			a.Services = append(a.Services, svc)
+		}
+	}
+	for _, ev := range result.Evidence {
+		duplicate := false
+		for _, old := range a.EnrichmentEvidence {
+			if old.Field == ev.Field && old.Value == ev.Value && old.Source == ev.Source {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate && len(a.EnrichmentEvidence) < 256 {
+			a.EnrichmentEvidence = append(a.EnrichmentEvidence, ev)
+		}
+	}
+	a.EnrichmentStatus, a.EnrichmentError = status, message
+	a.EnrichmentAttempts, a.NextEnrichmentAt = attempts, next.UTC()
+	if status == "enriched" || status == "partial" {
+		a.LastEnrichedAt = time.Now().UTC()
+	}
+	s.dirty[id] = struct{}{}
+	return true
 }
 
 // List returns matching assets, most recently seen first, and the number of
@@ -374,6 +491,10 @@ func clone(a Asset) Asset {
 	a.Ports = append([]int{}, a.Ports...)
 	a.Sources = append([]string{}, a.Sources...)
 	a.Tags = append([]string{}, a.Tags...)
+	a.MACAddresses = append([]string{}, a.MACAddresses...)
+	a.Protocols = append([]string{}, a.Protocols...)
+	a.Services = append([]ServiceInfo{}, a.Services...)
+	a.EnrichmentEvidence = append([]EnrichmentEvidence{}, a.EnrichmentEvidence...)
 	return a
 }
 

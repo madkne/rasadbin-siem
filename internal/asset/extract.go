@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"net"
 	"net/netip"
 	"regexp"
 	"strconv"
@@ -11,7 +12,8 @@ import (
 type observation struct {
 	hostname string
 	ip       string
-	port     int // >0: this host accepts TCP connections on port
+	mac      string
+	port     int // >0: this host accepted a TCP connection on port
 }
 
 var (
@@ -49,12 +51,15 @@ func extractPacket(msg string, includePublic bool) []observation {
 	if ip, ok := normalizeIP(m[4], includePublic); ok {
 		dst.ip = ip
 	}
+	macs := packetMACRe.FindStringSubmatch(msg)
+	if macs != nil {
+		src.mac = normalizeMAC(macs[1])
+		dst.mac = normalizeMAC(macs[2])
+	}
 	if strings.EqualFold(m[1], "TCP") && m[6] != "" {
 		if f, err := strconv.ParseUint(m[6], 16, 8); err == nil {
 			switch f {
-			case 0x02: // SYN: the destination is being asked to accept
-				dst.port = parsePort(m[5])
-			case 0x12: // SYN-ACK: the source accepted
+			case 0x12: // SYN-ACK: the source has acknowledged the service port
 				src.port = parsePort(m[3])
 			}
 		}
@@ -105,6 +110,20 @@ func extractSyslog(msg string, includePublic bool) []observation {
 // Loopback, multicast, broadcast and unspecified addresses are never assets;
 // public addresses are skipped unless includePublic is set (otherwise every
 // scanner or CDN seen in a log would become an "asset").
+var packetMACRe = regexp.MustCompile(`src_mac=([0-9a-fA-F:.-]{17})\s+dst_mac=([0-9a-fA-F:.-]{17})`)
+
+func normalizeMAC(raw string) string {
+	m, err := net.ParseMAC(strings.TrimSpace(raw))
+	if err != nil || len(m) != 6 {
+		return ""
+	}
+	// Do not treat multicast or all-zero addresses as an endpoint identity.
+	if m[0]&1 != 0 || strings.EqualFold(m.String(), "00:00:00:00:00:00") {
+		return ""
+	}
+	return strings.ToLower(m.String())
+}
+
 func normalizeIP(s string, includePublic bool) (string, bool) {
 	a, err := netip.ParseAddr(s)
 	if err != nil {

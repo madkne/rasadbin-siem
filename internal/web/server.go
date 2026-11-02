@@ -8,17 +8,19 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
-	"time"
-
 	"rasadbin/internal/asset"
+	"rasadbin/internal/asset/enrichment"
+	"rasadbin/internal/asset/enrichment/providers"
 	"rasadbin/internal/collector/journal"
 	"rasadbin/internal/collector/network"
 	"rasadbin/internal/collector/servicelog"
 	"rasadbin/internal/collector/syslog"
 	"rasadbin/internal/detection"
 	"rasadbin/internal/profile"
+	"time"
 )
 
 // Config configures the web UI.
@@ -51,6 +53,7 @@ type Server struct {
 	profiles         *profile.Manager
 	captureIfaces    []string
 	assets           *asset.Service
+	enrichment       *enrichment.Engine
 }
 
 // New builds the web UI server.
@@ -136,9 +139,26 @@ func New(cfg Config) (*Server, error) {
 	srv.integrations.notify = func(typ string, data any) {
 		srv.hub.Broadcast(typ, data)
 	}
+	var enrichmentEngine *enrichment.Engine
 	srv.assets = asset.NewService(asset.Options{}, func(batch []asset.Asset) {
 		srv.hub.broadcastAuthenticated("assets.changed", batch)
+		for _, item := range batch {
+			if item.EnrichmentStatus == "pending" || item.EnrichmentStatus == "" {
+				if enrichmentEngine != nil {
+					enrichmentEngine.Enqueue(item.ID)
+				}
+			}
+		}
 	})
+	enrichmentEngine, err = enrichment.New(srv.assets, []enrichment.Provider{
+		providers.DNSReverse{},
+		providers.LinuxNeighborTable{},
+		providers.PassiveServices{},
+	}, enrichment.Config{Workers: 2, QueueSize: 512, ActiveAllowed: srv.activeEnrichmentAllowed})
+	if err != nil {
+		return nil, fmt.Errorf("initialize asset enrichment: %w", err)
+	}
+	srv.enrichment = enrichmentEngine
 	srv.assets.SetLinkHandler(func(changed []asset.Link, removed []string) {
 		srv.hub.broadcastTopology("topology.changed",
 			map[string]any{"links": changed, "removed": removed})
@@ -179,9 +199,38 @@ func (s *Server) DrainStore(timeout time.Duration) {
 // Run drives periodic dashboard pushes until ctx is cancelled.
 func (s *Server) Run(ctx context.Context) {
 	go s.assets.Run(ctx)
+	if s.enrichment != nil {
+		go s.enrichment.Run(ctx)
+	}
 	s.hub.Run(ctx, func() time.Duration {
 		return time.Duration(s.settings.Get().RefreshSeconds) * time.Second
 	}, s.auth)
+}
+
+// activeEnrichmentAllowed is a second server-side safety gate. Even if a
+// future active provider is registered, it cannot run unless the admin enabled
+// active enrichment and explicitly scoped the target IP in Settings.
+func (s *Server) activeEnrichmentAllowed(a asset.Asset) bool {
+	if s == nil || s.settings == nil {
+		return false
+	}
+	settings := s.settings.Get()
+	if !settings.ActiveEnrichmentEnabled || len(settings.ActiveEnrichmentCIDRs) == 0 {
+		return false
+	}
+	for _, raw := range a.IPs {
+		ip, err := netip.ParseAddr(raw)
+		if err != nil {
+			continue
+		}
+		for _, cidr := range settings.ActiveEnrichmentCIDRs {
+			prefix, err := netip.ParsePrefix(cidr)
+			if err == nil && prefix.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Publish adds an event to the dashboard's live feed. Collectors call this.

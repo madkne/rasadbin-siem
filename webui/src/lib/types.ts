@@ -44,6 +44,8 @@ export interface Settings {
   session_minutes: number;
   retention_days: number;
   refresh_seconds: number;
+  active_enrichment_enabled: boolean;
+  active_enrichment_cidrs: string[];
 }
 
 export interface ErrorPayload {
@@ -254,6 +256,21 @@ export interface Asset {
   sources: string[];
   tags: string[];
   criticality?: string;
+  mac_addresses: string[];
+  services: { port: number; transport: string; name: string; protocol?: string; confidence: number; source: string; observed_at: string }[];
+  protocols: string[];
+  device_type?: string;
+  device_role?: string;
+  manufacturer?: string;
+  model?: string;
+  operating_system?: string;
+  os_version?: string;
+  enrichment_status: "pending" | "enriching" | "partial" | "enriched" | "failed" | "";
+  enrichment_attempts: number;
+  enrichment_error?: string;
+  last_enriched_at?: string;
+  next_enrichment_at?: string;
+  enrichment_evidence: { field: string; value: string; source: string; confidence: number; observed_at: string }[];
   first_seen: string;
   last_seen: string;
   event_count: number;

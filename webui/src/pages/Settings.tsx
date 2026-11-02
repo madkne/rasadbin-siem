@@ -51,6 +51,8 @@ export default function Settings() {
       session_minutes: Number(f.get("session_minutes")),
       retention_days: Number(f.get("retention_days")),
       refresh_seconds: Number(f.get("refresh_seconds")),
+      active_enrichment_enabled: f.get("active_enrichment_enabled") === "on",
+      active_enrichment_cidrs: String(f.get("active_enrichment_cidrs") || "").split(/[\n,]+/).map((v) => v.trim()).filter(Boolean),
     });
   }
 
@@ -102,7 +104,7 @@ export default function Settings() {
               <form
                 onSubmit={saveSettings}
                 onChange={() => setDirty(true)}
-                key={settings.instance_name + settings.log_level}
+                key={settings.instance_name + settings.log_level + String(settings.active_enrichment_enabled) + (settings.active_enrichment_cidrs ?? []).join(",")}
               >
                 <div className="settings-grid">
                   <div className="settings-field">
@@ -177,6 +179,28 @@ export default function Settings() {
                       defaultValue={settings.refresh_seconds}
                     />
                     <span className="settings-hint">1–60 seconds between pushes.</span>
+                  </div>
+                </div>
+
+                <div className="settings-panel-head" style={{ marginTop: "1.5rem" }}>
+                  <div>
+                    <p className="eyebrow">OT / IT SAFETY</p>
+                    <h2>Active enrichment permission</h2>
+                    <p className="muted settings-note">
+                      Passive enrichment is always preferred. Active probes are disabled by default and may only target IPs inside the explicit CIDR allowlist below. No active probes are enabled by this release.
+                    </p>
+                  </div>
+                </div>
+                <div className="settings-grid">
+                  <div className="settings-field">
+                    <label htmlFor="active_enrichment_enabled">Allow active enrichment</label>
+                    <input id="active_enrichment_enabled" name="active_enrichment_enabled" type="checkbox" defaultChecked={settings.active_enrichment_enabled} />
+                    <span className="settings-hint">Explicit administrative permission for future active providers. Default: disabled.</span>
+                  </div>
+                  <div className="settings-field">
+                    <label htmlFor="active_enrichment_cidrs">Allowed target CIDRs</label>
+                    <textarea id="active_enrichment_cidrs" name="active_enrichment_cidrs" rows={3} defaultValue={(settings.active_enrichment_cidrs || []).join("\n")} placeholder="192.168.10.0/24\n10.20.0.0/16" />
+                    <span className="settings-hint">One CIDR per line. Enabling active enrichment without an allowlist is rejected.</span>
                   </div>
                 </div>
 

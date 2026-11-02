@@ -27,19 +27,25 @@ type PacketEvent struct {
 	Protocol        string
 	Length          int
 	TCPFlags        byte
+	SourceMAC       string
+	DestinationMAC  string
 }
 
 func (e PacketEvent) String() string {
+	macs := ""
+	if e.SourceMAC != "" && e.DestinationMAC != "" {
+		macs = fmt.Sprintf(" src_mac=%s dst_mac=%s", e.SourceMAC, e.DestinationMAC)
+	}
 	flags := ""
 	if e.Protocol == "TCP" && e.TCPFlags != 0 {
 		flags = fmt.Sprintf(" flags=0x%02x", e.TCPFlags)
 	}
 	if e.SourcePort != 0 || e.DestinationPort != 0 {
-		return fmt.Sprintf("packet %s %s:%d -> %s:%d%s (%d bytes, interface=%s)",
-			e.Protocol, e.SourceIP, e.SourcePort, e.DestinationIP, e.DestinationPort, flags, e.Length, e.Interface)
+		return fmt.Sprintf("packet %s %s:%d -> %s:%d%s (%d bytes, interface=%s)%s",
+			e.Protocol, e.SourceIP, e.SourcePort, e.DestinationIP, e.DestinationPort, flags, e.Length, e.Interface, macs)
 	}
-	return fmt.Sprintf("packet %s %s -> %s%s (%d bytes, interface=%s)",
-		e.Protocol, e.SourceIP, e.DestinationIP, flags, e.Length, e.Interface)
+	return fmt.Sprintf("packet %s %s -> %s%s (%d bytes, interface=%s)%s",
+		e.Protocol, e.SourceIP, e.DestinationIP, flags, e.Length, e.Interface, macs)
 }
 
 type Collector struct {
@@ -148,7 +154,9 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 	proto := "IP"
 	ev := PacketEvent{Time: time.Now().UTC(), Interface: iface,
 		SourceIP: net.IP(ip[12:16]).String(), DestinationIP: net.IP(ip[16:20]).String(),
-		Protocol: proto, Length: offset + totalLen}
+		SourceMAC:      net.HardwareAddr(frame[6:12]).String(),
+		DestinationMAC: net.HardwareAddr(frame[0:6]).String(),
+		Protocol:       proto, Length: offset + totalLen}
 	l4 := ip[ihl:totalLen]
 	switch ip[9] {
 	case syscall.IPPROTO_TCP:

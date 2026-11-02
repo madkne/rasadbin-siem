@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,20 +16,24 @@ import (
 
 // Settings are the values editable from the admin settings page.
 type Settings struct {
-	InstanceName   string `json:"instance_name"`
-	LogLevel       string `json:"log_level"`       // debug | info | warn | error
-	SessionMinutes int    `json:"session_minutes"` // 5..1440
-	RetentionDays  int    `json:"retention_days"`  // 1..3650 (not enforced yet)
-	RefreshSeconds int    `json:"refresh_seconds"` // 1..60 dashboard push interval
+	InstanceName            string   `json:"instance_name"`
+	LogLevel                string   `json:"log_level"`                 // debug | info | warn | error
+	SessionMinutes          int      `json:"session_minutes"`           // 5..1440
+	RetentionDays           int      `json:"retention_days"`            // 1..3650 (not enforced yet)
+	RefreshSeconds          int      `json:"refresh_seconds"`           // 1..60 dashboard push interval
+	ActiveEnrichmentEnabled bool     `json:"active_enrichment_enabled"` // explicit opt-in; defaults false
+	ActiveEnrichmentCIDRs   []string `json:"active_enrichment_cidrs"`   // active probes are restricted to these ranges
 }
 
 func DefaultSettings() Settings {
 	return Settings{
-		InstanceName:   "Rasadbin",
-		LogLevel:       "info",
-		SessionMinutes: 60,
-		RetentionDays:  30,
-		RefreshSeconds: 2,
+		InstanceName:            "Rasadbin",
+		LogLevel:                "info",
+		SessionMinutes:          60,
+		RetentionDays:           30,
+		RefreshSeconds:          2,
+		ActiveEnrichmentEnabled: false,
+		ActiveEnrichmentCIDRs:   []string{},
 	}
 }
 
@@ -49,6 +54,14 @@ func (s Settings) Validate() error {
 	}
 	if s.RefreshSeconds < 1 || s.RefreshSeconds > 60 {
 		return errors.New("dashboard refresh must be 1-60 seconds")
+	}
+	for _, raw := range s.ActiveEnrichmentCIDRs {
+		if _, err := netip.ParsePrefix(strings.TrimSpace(raw)); err != nil {
+			return fmt.Errorf("invalid active enrichment CIDR %q", raw)
+		}
+	}
+	if s.ActiveEnrichmentEnabled && len(s.ActiveEnrichmentCIDRs) == 0 {
+		return errors.New("active enrichment requires at least one allowed CIDR")
 	}
 	return nil
 }

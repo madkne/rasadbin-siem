@@ -555,7 +555,9 @@ func (c *client) handleSettingsUpdate(raw json.RawMessage, sess *Session) {
 		c.sendError("settings.update", "could not save settings")
 		return
 	}
-	slog.Info("audit", "action", "settings.update", "user", sess.Username, "ip", c.ip)
+	slog.Info("audit", "action", "settings.update", "user", sess.Username, "ip", c.ip,
+		"active_enrichment_enabled", next.ActiveEnrichmentEnabled,
+		"active_enrichment_cidrs", next.ActiveEnrichmentCIDRs)
 	c.sendJSON("settings_saved", next)
 }
 
