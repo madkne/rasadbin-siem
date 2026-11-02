@@ -131,7 +131,7 @@ func normalizeIP(s string, includePublic bool) (string, bool) {
 	}
 	a = a.Unmap()
 	if a.IsUnspecified() || a.IsLoopback() || a.IsMulticast() || a.IsLinkLocalMulticast() ||
-		(a.Is4() && a.As4() == [4]byte{255, 255, 255, 255}) {
+		(a.Is4() && a.As4()[3] == 255) {
 		return "", false
 	}
 	if a.IsPrivate() || a.IsLinkLocalUnicast() || (a.Is4() && cgnat.Contains(a)) || includePublic {

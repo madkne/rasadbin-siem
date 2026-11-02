@@ -219,10 +219,14 @@ func (s *Service) AddManual(in Asset) (Asset, error) {
 	}
 	var ips []string
 	for _, raw := range in.IPs {
-		a, err := netip.ParseAddr(strings.TrimSpace(raw))
-		if err != nil {
-			return Asset{}, fmt.Errorf("invalid IP address %q", raw)
-		}
+	a, err := netip.ParseAddr(strings.TrimSpace(raw))
+	if err != nil {
+		return Asset{}, fmt.Errorf("invalid IP address %q", raw)
+	}
+	a = a.Unmap()
+	if a.Is4() && a.As4()[3] == 255 {
+		return Asset{}, fmt.Errorf("broadcast address %q is not an asset", raw)
+	}
 		ips = addUnique(ips, a.Unmap().String(), maxIPsPerAsset)
 	}
 	host := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(in.Hostname), "."))
