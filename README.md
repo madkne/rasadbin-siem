@@ -24,6 +24,24 @@ Searchable event explorer with severity/source filters, a time histogram, and ex
 
 ![Discover](docs/screenshots/discover.png)
 
+### Alerts
+
+Persistent alert workspace with filters, evidence, status workflow, assignment, notes, and activity history.
+
+![Alerts](docs/screenshots/alerts.png)
+
+### Assets
+
+Discovered and manually added host inventory with services, sources, and enrichment details.
+
+![Assets](docs/screenshots/assets.png)
+
+### Topology
+
+Network topology view with live asset-to-asset links.
+
+![Topology](docs/screenshots/topology.png)
+
 ### Detection Rules
 
 Create, validate, enable/disable, and delete detection rules from the UI.
@@ -41,6 +59,12 @@ Enable telemetry sources, toggle alerting, and open a per-integration workspace.
 Import, validate, install, and remove reusable ZIP bundles of rules, integrations, and configuration.
 
 ![Profiles](docs/screenshots/profiles.png)
+
+### Settings
+
+Configure instance name, enrichment permissions, and administrator password.
+
+![Settings](docs/screenshots/settings.png)
 
 ## Features and Roadmap
 
