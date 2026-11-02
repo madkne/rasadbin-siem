@@ -244,7 +244,7 @@ The implementation returns an HTTP 200 response similar to:
 {
   "status": "ok",
   "service": "rasadbin",
-  "version": "0.5.1"
+  "version": "0.5.11"
 }
 ```
 
@@ -297,8 +297,7 @@ Loaded at startup from `.env`, the environment, and CLI flags. See `.env.example
 
 | Variable            | Flag                  | Default             | Description                                   |
 | ------------------- | --------------------- | ------------------- | --------------------------------------------- |
-| `HTTP_HOST`         |                       | `127.0.0.1`         | HTTP bind host                                |
-| `HTTP_PORT`         |                       | `8080`              | HTTP bind port                                |
+| `LISTEN`            | `--listen`            | `127.0.0.1:8080`    | HTTP listen address (overrides HTTP_HOST/HTTP_PORT) |
 | `DATA_DIR`          | `--data-dir`          | `./data`            | Directory for persisted settings              |
 | `WEBUI_DIR`         | `--webui-dir`         | `webui/dist`        | Path to built web UI assets                   |
 | `ADMIN_PASSWORD`    |                       | (generated)         | Initial admin password (min. 10 characters)   |
@@ -307,6 +306,9 @@ Loaded at startup from `.env`, the environment, and CLI flags. See `.env.example
 | `DB_DRIVER`         | `--db-driver`         | `sqlite`            | Database driver: sqlite, postgres, or mysql   |
 | `DB_DSN`            | `--db-dsn`            | `DATA_DIR/rasadbin.db` | Database DSN or file path                  |
 | `DB_LOG_LEVEL`      | `--db-log-level`      | `warn`              | GORM log level: silent, error, warn, info     |
+| `DB_MAX_OPEN_CONNS` |                       | `10`                | Maximum open database connections             |
+| `DB_MAX_IDLE_CONNS` |                       | `5`                 | Maximum idle database connections             |
+| `DB_CONN_MAX_LIFETIME` |                    | `1h`                | Maximum connection lifetime                   |
 | `SYSLOG_PATHS`      | `--syslog-paths`      | `/var/log/auth.log,/var/log/syslog,/var/log/messages,/var/log/secure` | Comma-separated syslog files to tail |
 | `SERVICE_LOG_PATHS` | `--service-log-paths` | `/var/log/nginx/access.log,/var/log/nginx/error.log` | Comma-separated service log files to tail |
 | `ENV_FILE`          |                       | `.env`              | Path to the environment file                  |
