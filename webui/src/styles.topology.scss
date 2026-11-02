@@ -55,39 +55,14 @@
 .topo-node {
   cursor: pointer;
 }
-.topo-node circle {
-  fill: #2a3a4f;
-  stroke: #4d6481;
-  stroke-width: 1.5;
-}
-.topo-node.active circle {
-  fill: #1d5a45;
-  stroke: var(--ok);
-}
-.topo-node.manual circle {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-}
-.topo-node.crit-high circle,
-.topo-node.crit-critical circle {
-  stroke: var(--bad);
-}
-.topo-node.selected circle {
-  stroke: var(--warning);
-  stroke-width: 3;
-}
+
+
+
+
 .topo-node.dim {
   opacity: 0.18;
 }
-.topo-node text {
-  fill: #c9d6e5;
-  font-size: 11px;
-  text-anchor: middle;
-  pointer-events: none;
-  paint-order: stroke;
-  stroke: #0b121c;
-  stroke-width: 3px;
-}
+
 .topology-legend {
   position: absolute;
   left: 0.8rem;

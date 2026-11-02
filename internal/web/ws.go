@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -465,6 +466,41 @@ func (c *client) dispatch(env envelope) {
 		}
 		items, total := c.srv.assets.List(q)
 		c.sendJSON("assets", map[string]any{"assets": items, "total": total})
+	case "asset.save":
+		var in asset.Asset
+
+		if err := decodeStrict(env.Data, &in); err != nil {
+			c.sendError(env.Type, "invalid asset payload")
+			break
+		}
+
+		var (
+			updated asset.Asset
+			err     error
+		)
+
+		if strings.TrimSpace(in.ID) != "" {
+			// Update existing discovered or manually created asset.
+			updated, err = c.srv.assets.UpdateMetadata(in.ID, in)
+		} else {
+			// Create a new manual asset.
+			updated, err = c.srv.assets.AddManual(in)
+		}
+
+		if err != nil {
+			c.sendError(env.Type, err.Error())
+			break
+		}
+
+		if err := c.srv.assets.Flush(context.Background()); err != nil {
+			c.sendError(env.Type, "failed to persist asset changes")
+			break
+		}
+
+		c.srv.hub.broadcastAuthenticated(
+			"assets.changed",
+			[]asset.Asset{updated},
+		)
 	case "topology.get":
 		c.sendJSON("topology", c.srv.assets.Topology(1000, 5000))
 	case "topology.subscribe":

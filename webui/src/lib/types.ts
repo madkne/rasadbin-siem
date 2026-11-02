@@ -143,6 +143,7 @@ export interface WsMessageMap {
   "profile.deleted": ProfileDeletedPayload;
   assets: { assets: Asset[]; total: number };
   "assets.changed": Asset[];
+  "asset.save": { asset: Asset };
   topology: { assets: Asset[]; links: TopologyLink[] };
   "topology.changed": { links: TopologyLink[]; removed: string[] };
 }
@@ -257,7 +258,15 @@ export interface Asset {
   tags: string[];
   criticality?: string;
   mac_addresses: string[];
-  services: { port: number; transport: string; name: string; protocol?: string; confidence: number; source: string; observed_at: string }[];
+  services: {
+    port: number;
+    transport: string;
+    name: string;
+    protocol?: string;
+    confidence: number;
+    source: string;
+    observed_at: string;
+  }[];
   protocols: string[];
   device_type?: string;
   device_role?: string;
@@ -265,12 +274,24 @@ export interface Asset {
   model?: string;
   operating_system?: string;
   os_version?: string;
-  enrichment_status: "pending" | "enriching" | "partial" | "enriched" | "failed" | "";
+  enrichment_status:
+    | "pending"
+    | "enriching"
+    | "partial"
+    | "enriched"
+    | "failed"
+    | "";
   enrichment_attempts: number;
   enrichment_error?: string;
   last_enriched_at?: string;
   next_enrichment_at?: string;
-  enrichment_evidence: { field: string; value: string; source: string; confidence: number; observed_at: string }[];
+  enrichment_evidence: {
+    field: string;
+    value: string;
+    source: string;
+    confidence: number;
+    observed_at: string;
+  }[];
   first_seen: string;
   last_seen: string;
   archived?: boolean;
@@ -286,4 +307,38 @@ export interface TopologyLink {
   bytes: number;
   first_seen: string;
   last_seen: string;
+}
+/** Fields accepted by the `asset.save` message (analyst-owned only). */
+export interface AssetSavePayload {
+  id?: string;
+  ips?: string[];
+
+  hostname?: string;
+  name?: string;
+  tags?: string[];
+  criticality?: "" | "low" | "medium" | "high" | "critical";
+
+  device_type?: string;
+  device_role?: string;
+  manufacturer?: string;
+  model?: string;
+  operating_system?: string;
+  os_version?: string;
+}
+
+export type Criticality = "" | "low" | "medium" | "high" | "critical";
+
+export interface AssetDraft {
+  ips: string;
+  hostname: string;
+  name: string;
+  criticality: Criticality;
+  tags: string[];
+
+  device_type: string;
+  device_role: string;
+  manufacturer: string;
+  model: string;
+  operating_system: string;
+  os_version: string;
 }

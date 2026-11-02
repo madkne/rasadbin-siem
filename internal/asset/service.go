@@ -274,7 +274,14 @@ func (s *Service) AddManual(in Asset) (Asset, error) {
 		a = &Asset{ID: id, FirstSeen: now, LastSeen: now}
 		s.assets[id] = a
 	}
+	a.DeviceType = strings.TrimSpace(in.DeviceType)
+	a.DeviceRole = strings.TrimSpace(in.DeviceRole)
+	a.Manufacturer = strings.TrimSpace(in.Manufacturer)
+	a.Model = strings.TrimSpace(in.Model)
+	a.OperatingSystem = strings.TrimSpace(in.OperatingSystem)
+	a.OSVersion = strings.TrimSpace(in.OSVersion)
 	a.Origin, a.Name, a.Criticality, a.Tags = OriginManual, name, crit, tags
+
 	if host != "" {
 		a.Hostname = host
 	}
@@ -547,6 +554,91 @@ func (s *Service) ArchiveDuplicates() int {
 		}
 	}
 	return n
+}
+
+func (s *Service) UpdateMetadata(id string, in Asset) (Asset, error) {
+	if s == nil {
+		return Asset{}, errors.New("asset service unavailable")
+	}
+
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Asset{}, errors.New("asset ID is required")
+	}
+
+	name := strings.TrimSpace(in.Name)
+	hostname := strings.ToLower(
+		strings.TrimSuffix(strings.TrimSpace(in.Hostname), "."),
+	)
+
+	if len(name) > 128 {
+		return Asset{}, errors.New("name is too long")
+	}
+	if hostname != "" && !hostRe.MatchString(hostname) {
+		return Asset{}, errors.New("invalid hostname")
+	}
+
+	criticality := strings.ToLower(strings.TrimSpace(in.Criticality))
+	switch criticality {
+	case "", "low", "medium", "high", "critical":
+	default:
+		return Asset{}, errors.New("invalid criticality")
+	}
+
+	fields := map[string]string{
+		"device type":      in.DeviceType,
+		"device role":      in.DeviceRole,
+		"manufacturer":     in.Manufacturer,
+		"model":            in.Model,
+		"operating system": in.OperatingSystem,
+		"os version":       in.OSVersion,
+	}
+
+	for label, value := range fields {
+		if len(strings.TrimSpace(value)) > 128 {
+			return Asset{}, fmt.Errorf("%s is too long", label)
+		}
+	}
+
+	var tags []string
+	for _, tag := range in.Tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		if len(tag) > 64 {
+			return Asset{}, errors.New("tag is too long")
+		}
+		tags = addUnique(tags, tag, 16)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	a := s.assets[id]
+	if a == nil {
+		return Asset{}, errors.New("asset not found")
+	}
+
+	if name == "" {
+		name = a.Name
+	}
+
+	a.Name = name
+	a.Hostname = hostname
+	a.Criticality = criticality
+	a.Tags = tags
+
+	a.DeviceType = strings.TrimSpace(in.DeviceType)
+	a.DeviceRole = strings.TrimSpace(in.DeviceRole)
+	a.Manufacturer = strings.TrimSpace(in.Manufacturer)
+	a.Model = strings.TrimSpace(in.Model)
+	a.OperatingSystem = strings.TrimSpace(in.OperatingSystem)
+	a.OSVersion = strings.TrimSpace(in.OSVersion)
+
+	s.dirty[id] = struct{}{}
+
+	return clone(*a), nil
 }
 
 func clone(a Asset) Asset {

@@ -364,8 +364,6 @@ export default function Topology() {
     [connections],
   );
 
-  const nodeRadius = (a: Asset) =>
-    6 + Math.min(8, Math.log2(1 + a.event_count) / 2);
 
   return (
     <Shell>
@@ -468,7 +466,6 @@ export default function Topology() {
                     ]
                       .filter(Boolean)
                       .join(" ");
-                    const r = nodeRadius(a);
                     return (
                       <g
                         key={a.id}
@@ -487,16 +484,13 @@ export default function Topology() {
                           height="54"
                           rx="12"
                         />
-
+                        <AssetGlyph type={resolveAssetVisual(a)} />
                         <circle
                           className="topo-node-status"
                           cx="19"
                           cy="-19"
                           r="4"
                         />
-
-                        <AssetGlyph type={resolveAssetVisual(a)} />
-
                         {labels && (
                           <>
                             <text className="topo-node-label" y="43">
@@ -507,8 +501,6 @@ export default function Topology() {
                             </text>
                           </>
                         )}
-
-                        {labels && <text y={r + 13}>{a.name}</text>}
                         <title>{`${a.name}${a.ips?.length ? " · " + a.ips.join(", ") : ""}`}</title>
                       </g>
                     );

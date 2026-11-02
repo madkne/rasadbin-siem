@@ -1,4 +1,4 @@
-import { Asset } from "../lib/types";
+import type { Asset } from "../lib/types";
 import {
   Monitor,
   Server,
@@ -9,9 +9,10 @@ import {
   Gauge,
   Thermometer,
   HelpCircle,
+  type LucideIcon,
 } from "lucide-react";
 
-type AssetVisualType =
+export type AssetVisualType =
   | "workstation"
   | "server"
   | "plc"
@@ -22,55 +23,54 @@ type AssetVisualType =
   | "sensor"
   | "unknown";
 
+// Order matters: first match wins.
+const RULES: [AssetVisualType, RegExp][] = [
+  ["firewall", /firewall|fortigate|palo.?alto|checkpoint/],
+  ["plc", /\bplc\b|\brtu\b|scada|programmable.?logic|modbus|dnp3|s7comm|iec.?104|logix/],
+  ["hmi", /\bhmi\b|human.?machine/],
+  ["switch", /switch|network.?device/],
+  ["router", /router|gateway/],
+  ["sensor", /sensor|\biot\b|io.?module/],
+  ["server", /server|linux.?host|database/],
+  ["workstation", /workstation|desktop|laptop|windows.?client/],
+];
+
+function classify(text: string): AssetVisualType | null {
+  const value = text.trim().toLowerCase();
+  if (!value) return null;
+  for (const [type, re] of RULES) if (re.test(value)) return type;
+  return null;
+}
+
 export function resolveAssetVisual(a: Asset): AssetVisualType {
-  const explicit =
-    `${a.device_type ?? ""} ${a.device_role ?? ""}`.toLowerCase();
+  // 1. Analyst-set classification wins: device type, then role.
+  const explicit = classify(a.device_type ?? "") ?? classify(a.device_role ?? "");
+  if (explicit) return explicit;
 
-  const metadata = [
-    a.name,
-    a.hostname,
-    ...(a.tags ?? []),
-    ...(a.protocols ?? []),
-    ...(a.services ?? []).map((s) => `${s.name} ${s.protocol}`),
-  ]
-    .join(" ")
-    .toLowerCase();
+  // 2. Discovered metadata.
+  const fromMeta = classify(
+    [
+      a.name,
+      a.hostname,
+      ...(a.tags ?? []),
+      ...(a.protocols ?? []),
+      ...(a.services ?? []).map((s) => `${s.name} ${s.protocol ?? ""}`),
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  if (fromMeta) return fromMeta;
 
-  const value = explicit || metadata;
-
-  if (/firewall|fortigate|palo.?alto|checkpoint/.test(value)) return "firewall";
-
-  if (
-    /plc|programmable.?logic|controller|modbus|dnp3|s7comm|iec104/.test(value)
-  )
-    return "plc";
-
-  if (/\bhmi\b|human.?machine/.test(value)) return "hmi";
-
-  if (/switch|ethernet.?switch/.test(value)) return "switch";
-
-  if (/router|gateway/.test(value)) return "router";
-
-  if (/sensor|temperature.?sensor|io.?module/.test(value)) return "sensor";
-
-  if (/server|linux.?host|database|web.?server/.test(value)) return "server";
-
-  if (/workstation|desktop|laptop|windows.?client/.test(value))
-    return "workstation";
-
+  // 3. Well-known ports.
   const ports = a.ports ?? [];
-
-  if (ports.some((p) => [502, 102, 20000, 2404, 44818, 4840].includes(p)))
-    return "plc";
-
+  if (ports.some((p) => [502, 102, 20000, 2404, 44818, 4840].includes(p))) return "plc";
   if (ports.some((p) => [3389, 445, 139].includes(p))) return "workstation";
-
-  if (ports.some((p) => [3306, 5432, 6379, 9200].includes(p))) return "server";
+  if (ports.some((p) => [3306, 5432, 6379, 9200, 22, 80, 443].includes(p))) return "server";
 
   return "unknown";
 }
 
-const ICONS: Record<AssetVisualType, any> = {
+const ICONS: Record<AssetVisualType, LucideIcon> = {
   workstation: Monitor,
   server: Server,
   plc: Cpu,
@@ -82,7 +82,21 @@ const ICONS: Record<AssetVisualType, any> = {
   unknown: HelpCircle,
 };
 
+const SIZE = 28;
+
+/** Renders a Lucide icon centered on (0,0) so it can sit inside an SVG node. */
 export function AssetGlyph({ type }: { type: AssetVisualType }) {
   const Icon = ICONS[type] ?? HelpCircle;
-  return <Icon size={28} strokeWidth={1.8} />;
+  return (
+    <g className={`asset-glyph glyph-${type}`}>
+      <Icon
+        className="asset-glyph-svg"
+        x={-SIZE / 2}
+        y={-SIZE / 2}
+        width={SIZE}
+        height={SIZE}
+        strokeWidth={1.8}
+      />
+    </g>
+  );
 }

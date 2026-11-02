@@ -53,3 +53,26 @@
 .asset-origin-manual {
   color: var(--accent);
 }
+
+.asset-editor-panel {
+  margin-bottom: 24px;
+}
+
+.asset-editor-section {
+  grid-column: 1 / -1;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
+.asset-editor-section-heading {
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+  }
+
+  small {
+    color: var(--muted);
+  }
+}

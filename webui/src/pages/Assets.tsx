@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
-import type { Asset } from "../lib/types";
+import type { Asset, AssetDraft } from "../lib/types";
+import AssetEditor from "../components/AssetEditor";
 
 const ACTIVE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -24,6 +25,10 @@ export default function Assets() {
   const [archived, setArchived] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [editor, setEditor] = useState<
+    { mode: "new" } | { mode: "edit"; asset: Asset } | null
+  >(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError("");
@@ -36,15 +41,12 @@ export default function Assets() {
       setAssets(sortAssets(p.assets ?? []));
       setTotal(p.total);
     });
-    const offChanged = ws.on("assets.changed", (batch) =>
-      setAssets((prev) => {
-        const byId = new Map(prev.map((a) => [a.id, a]));
-        for (const a of batch ?? []) byId.set(a.id, a);
-        return sortAssets([...byId.values()]);
-      }),
-    );
+
     const offErr = ws.on("error", (e) => {
-      if (e.for === "assets.get") setError(e.message);
+      if (e.for === "assets.get" || e.for === "asset.save") {
+        setError(e.message);
+        if (e.for === "asset.save") setSavingId(null);
+      }
     });
     if (ws.isReady) load();
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -56,6 +58,56 @@ export default function Assets() {
       window.clearInterval(timer);
     };
   }, [load]);
+
+  const saveAsset = useCallback(
+    (draft: AssetDraft) => {
+      const editing = editor?.mode === "edit" ? editor.asset : undefined;
+
+      setSavingId(editing?.id ?? "new");
+      setError("");
+
+      ws.send("asset.save", {
+        id: editing?.id,
+
+        // Only used when creating a new asset.
+        ips: draft.ips
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+
+        hostname: draft.hostname.trim(),
+        name: draft.name.trim(),
+        tags: draft.tags,
+        criticality: draft.criticality,
+
+        device_type: draft.device_type,
+        device_role: draft.device_role,
+        manufacturer: draft.manufacturer,
+        model: draft.model,
+        operating_system: draft.operating_system,
+        os_version: draft.os_version,
+      });
+    },
+    [editor],
+  );
+
+  const offChanged = ws.on("assets.changed", (batch) => {
+    setAssets((prev) => {
+      const byId = new Map(prev.map((a) => [a.id, a]));
+      for (const a of batch ?? []) byId.set(a.id, a);
+      return sortAssets([...byId.values()]);
+    });
+    if (batch?.length) {
+      const saved = editor?.mode === "edit" ? editor.asset : undefined;
+      const matched = saved
+        ? batch.some((a) => a.id === saved.id)
+        : savingId === "new";
+      if (matched) {
+        setSavingId(null);
+        setEditor(null);
+      }
+    }
+  });
 
   const isActive = (a: Asset) =>
     now - Date.parse(a.last_seen) < ACTIVE_WINDOW_MS;
@@ -169,12 +221,52 @@ export default function Assets() {
           <button type="button" className="ghost" onClick={load}>
             Refresh
           </button>
+          <button
+            type="button"
+            onClick={() => setEditor({ mode: "new" })}
+            disabled={editor?.mode === "new"}
+          >
+            ＋ Add asset
+          </button>
         </section>
 
         {error && (
           <p className="msg error" role="alert">
             {error}
           </p>
+        )}
+
+        {editor && (
+          <section className="panel asset-editor-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">ASSET MANAGEMENT</p>
+                <h2>
+                  {editor.mode === "edit" ? "Edit asset" : "Add new asset"}
+                </h2>
+                {editor.mode === "edit" && (
+                  <p className="muted">{editor.asset.id}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setEditor(null)}
+                disabled={!!savingId}
+              >
+                Close
+              </button>
+            </div>
+
+            <AssetEditor
+              key={editor.mode === "edit" ? editor.asset.id : "new-asset"}
+              asset={editor.mode === "edit" ? editor.asset : undefined}
+              busy={!!savingId}
+              onSubmit={saveAsset}
+              onCancel={() => setEditor(null)}
+            />
+          </section>
         )}
 
         <section className="discover-results">
@@ -238,14 +330,25 @@ export default function Assets() {
                         </td>
                         <td>
                           <span className="asset-chips">
-                            {(a.services ?? []).length > 0 ? (a.services ?? []).slice(0, 4).map((svc) => (
-                              <span key={`${svc.transport}-${svc.port}-${svc.name}`} className="asset-chip" title={`${svc.protocol ?? "unknown"} · confidence ${Math.round(svc.confidence * 100)}%`}>
-                                {svc.name} :{svc.port}
-                              </span>
-                            )) : (a.ports ?? []).slice(0, 5).map((p) => (
-                              <span key={p} className="asset-chip">{p}</span>
-                            ))}
-                            {(a.services ?? []).length === 0 && (a.ports ?? []).length === 0 && <span className="muted">—</span>}
+                            {(a.services ?? []).length > 0
+                              ? (a.services ?? []).slice(0, 4).map((svc) => (
+                                  <span
+                                    key={`${svc.transport}-${svc.port}-${svc.name}`}
+                                    className="asset-chip"
+                                    title={`${svc.protocol ?? "unknown"} · confidence ${Math.round(svc.confidence * 100)}%`}
+                                  >
+                                    {svc.name} :{svc.port}
+                                  </span>
+                                ))
+                              : (a.ports ?? []).slice(0, 5).map((p) => (
+                                  <span key={p} className="asset-chip">
+                                    {p}
+                                  </span>
+                                ))}
+                            {(a.services ?? []).length === 0 &&
+                              (a.ports ?? []).length === 0 && (
+                                <span className="muted">—</span>
+                              )}
                           </span>
                         </td>
                         <td>
@@ -263,12 +366,38 @@ export default function Assets() {
                         <tr className="discover-doc">
                           <td colSpan={6}>
                             <div className="asset-enrichment-summary">
-                              <strong>Enrichment: {a.enrichment_status || "not started"}</strong>
-                              {a.mac_addresses?.length ? <p>MAC: {a.mac_addresses.join(", ")}</p> : null}
-                              {a.protocols?.length ? <p>Protocols: {a.protocols.join(", ")}</p> : null}
-                              {a.enrichment_error ? <p className="msg error">{a.enrichment_error}</p> : null}
-                              {a.enrichment_evidence?.length ? <p>Evidence: {a.enrichment_evidence.length} records</p> : null}
+                              <strong>
+                                Enrichment:{" "}
+                                {a.enrichment_status || "not started"}
+                              </strong>
+                              {a.mac_addresses?.length ? (
+                                <p>MAC: {a.mac_addresses.join(", ")}</p>
+                              ) : null}
+                              {a.protocols?.length ? (
+                                <p>Protocols: {a.protocols.join(", ")}</p>
+                              ) : null}
+                              {a.enrichment_error ? (
+                                <p className="msg error">
+                                  {a.enrichment_error}
+                                </p>
+                              ) : null}
+                              {a.enrichment_evidence?.length ? (
+                                <p>
+                                  Evidence: {a.enrichment_evidence.length}{" "}
+                                  records
+                                </p>
+                              ) : null}
                             </div>
+                            <button
+                              type="button"
+                              className="ghost"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setEditor({ mode: "edit", asset: a });
+                              }}
+                            >
+                              Edit asset
+                            </button>
                             <pre>{JSON.stringify(a, null, 2)}</pre>
                           </td>
                         </tr>
