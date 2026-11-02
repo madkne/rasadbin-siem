@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Integration } from "../lib/types";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-const statusText: Record<string,string> = {
+const statusText: Record<string, string> = {
   not_configured: "Not enabled",
   disabled: "Disabled",
   enabled_waiting_for_collector: "Enabled · collector adapter pending",
@@ -13,31 +12,130 @@ const statusText: Record<string,string> = {
   failed: "Failed",
 };
 export default function Integrations() {
-  const [items,setItems] = useState<Integration[]>([]);
-  const [error,setError] = useState("");
-  const [busy,setBusy] = useState<string|null>(null);
-  useEffect(()=>{
-    const offReady=ws.on("ready",()=>ws.send("integrations.get"));
-    const offList=ws.on("integrations",setItems);
-    const offSaved=ws.on("integration_saved",v=>{setItems(old=>old.map(i=>i.id===v.id?v:i));setBusy(null);});
-    const offErr=ws.on("error",e=>{if(e.for==="integration.update"||e.for==="integrations.get"){setError(e.message);setBusy(null);}});
-    if(ws.isReady) ws.send("integrations.get");
-    return ()=>{offReady();offList();offSaved();offErr();};
-  },[]);
-  function update(item:Integration, enabled=item.enabled, alerting=item.alerting) {
-    setBusy(item.id); setError("");
-    ws.send("integration.update",{id:item.id,enabled,alerting});
+  const [items, setItems] = useState<Integration[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => {
+    const offReady = ws.on("ready", () => ws.send("integrations.get"));
+    const offList = ws.on("integrations", setItems);
+    const offSaved = ws.on("integration_saved", (v) => {
+      setItems((old) => old.map((i) => (i.id === v.id ? v : i)));
+      setBusy(null);
+    });
+    const offErr = ws.on("error", (e) => {
+      if (e.for === "integration.update" || e.for === "integrations.get") {
+        setError(e.message);
+        setBusy(null);
+      }
+    });
+    if (ws.isReady) ws.send("integrations.get");
+    return () => {
+      offReady();
+      offList();
+      offSaved();
+      offErr();
+    };
+  }, []);
+  function update(
+    item: Integration,
+    enabled = item.enabled,
+    alerting = item.alerting,
+  ) {
+    setBusy(item.id);
+    setError("");
+    ws.send("integration.update", { id: item.id, enabled, alerting });
   }
-  return <Shell><main className="integration-page">
-    <div className="page-heading"><div><p className="eyebrow">DATA SOURCES</p><h1>Integrations</h1><p className="muted">Enable the telemetry sources Rasadbin should process. Each integration defines its own collector, processor, detections and alert policy.</p></div><span className="integration-count">{items.filter(i=>i.enabled).length} / {items.length} enabled</span></div>
-    {error&&<p className="msg error" role="alert">{error}</p>}
-    <div className="integration-grid">{items.map(item=><section className="integration-card" key={item.id}>
-      <div className="integration-card-head"><div className="integration-icon">{item.category==="Network"?"↔":item.category==="Services"?"⌘":"≋"}</div><div className="integration-title"><span className="eyebrow">{item.category}</span><h2>{item.name}</h2></div><Label className="switch-label"><Input aria-label={`Enable ${item.name}`} type="checkbox" checked={item.enabled} disabled={busy===item.id} onChange={e=>update(item,e.target.checked)}/><span>{item.enabled?"On":"Off"}</span></Label></div>
-      <p>{item.description}</p><div className="integration-meta"><span>Collector</span><p>{item.collector}</p><span>Event processor</span><p>{item.processor}</p></div>
-      <div className="detection-list"><strong>Detection packs</strong>{item.detections.map(d=><span key={d}>• {d}</span>)}</div>
-      <div className="integration-footer"><Label><Input type="checkbox" checked={item.alerting} disabled={!item.enabled||busy===item.id} onChange={e=>update(item,item.enabled,e.target.checked)}/> Generate alerts</Label><span className={item.enabled?"state-enabled":"state-disabled"}>{statusText[item.status]??item.status}</span></div>
-      <Link className="integration-detail-link" to={`/integrations/${item.id}`}>Open integration workspace <span aria-hidden>→</span></Link>
-    </section>)}</div>
-    <p className="muted integration-note">Important: integration controls and configuration are persisted. A source is not considered operational until its collector adapter reports healthy; collector adapters are being introduced independently of this control plane.</p>
-  </main></Shell>;
+  return (
+    <main className="integration-page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">DATA SOURCES</p>
+          <h1>Integrations</h1>
+          <p className="muted">
+            Enable the telemetry sources Rasadbin should process. Each
+            integration defines its own collector, processor, detections and
+            alert policy.
+          </p>
+        </div>
+        <span className="integration-count">
+          {items.filter((i) => i.enabled).length} / {items.length} enabled
+        </span>
+      </div>
+      {error && (
+        <p className="msg error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="integration-grid">
+        {items.map((item) => (
+          <section className="integration-card" key={item.id}>
+            <div className="integration-card-head">
+              <div className="integration-icon">
+                {item.category === "Network"
+                  ? "↔"
+                  : item.category === "Services"
+                    ? "⌘"
+                    : "≋"}
+              </div>
+              <div className="integration-title">
+                <span className="eyebrow">{item.category}</span>
+                <h2>{item.name}</h2>
+              </div>
+              <Label className="switch-label">
+                <Input
+                  aria-label={`Enable ${item.name}`}
+                  type="checkbox"
+                  checked={item.enabled}
+                  disabled={busy === item.id}
+                  onChange={(e) => update(item, e.target.checked)}
+                />
+                <span>{item.enabled ? "On" : "Off"}</span>
+              </Label>
+            </div>
+            <p>{item.description}</p>
+            <div className="integration-meta">
+              <span>Collector</span>
+              <p>{item.collector}</p>
+              <span>Event processor</span>
+              <p>{item.processor}</p>
+            </div>
+            <div className="detection-list">
+              <strong>Detection packs</strong>
+              {item.detections.map((d) => (
+                <span key={d}>• {d}</span>
+              ))}
+            </div>
+            <div className="integration-footer">
+              <Label>
+                <Input
+                  type="checkbox"
+                  checked={item.alerting}
+                  disabled={!item.enabled || busy === item.id}
+                  onChange={(e) => update(item, item.enabled, e.target.checked)}
+                />{" "}
+                Generate alerts
+              </Label>
+              <span
+                className={item.enabled ? "state-enabled" : "state-disabled"}
+              >
+                {statusText[item.status] ?? item.status}
+              </span>
+            </div>
+            <Link
+              className="integration-detail-link"
+              to={`/integrations/${item.id}`}
+            >
+              Open integration workspace <span aria-hidden>→</span>
+            </Link>
+          </section>
+        ))}
+      </div>
+      <p className="muted integration-note">
+        Important: integration controls and configuration are persisted. A
+        source is not considered operational until its collector adapter reports
+        healthy; collector adapters are being introduced independently of this
+        control plane.
+      </p>
+    </main>
+  );
 }

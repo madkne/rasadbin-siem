@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import Shell from "../components/Shell";
 import { fmtDuration, ws } from "../lib/ws";
 import type { EventEntry, Stats } from "../lib/types";
 import { Label } from "../components/ui/label";
@@ -57,195 +56,198 @@ export default function Dashboard() {
   }, [events]);
 
   return (
-    <Shell>
-      <main className="dashboard">
-        <section className="page-heading">
+    <main className="dashboard">
+      <section className="page-heading">
+        <div>
+          <div className="eyebrow">SECURITY OPERATIONS / OVERVIEW</div>
+          <h1>System overview</h1>
+          <p className="muted">
+            Live health and runtime activity for your Rasadbin instance.
+          </p>
+        </div>
+        <div className={`live-pill ${ws.isConnected ? "is-live" : ""}`}>
+          <span className="live-dot" />
+          {ws.isConnected ? "Live connection" : "Reconnecting"}
+        </div>
+      </section>
+
+      <section className="metric-grid" aria-label="System metrics">
+        <Stat
+          label="Uptime"
+          value={stats ? fmtDuration(stats.uptime_seconds) : "—"}
+          detail="Since service start"
+          icon="◷"
+        />
+        <Stat
+          label="Events received"
+          value={stats ? stats.events_total.toLocaleString() : "—"}
+          detail="Lifetime in this process"
+          icon="⌁"
+        />
+        <Stat
+          label="Connected clients"
+          value={stats ? String(stats.clients) : "—"}
+          detail="Authenticated sessions"
+          icon="◎"
+        />
+        <Stat
+          label="Goroutines"
+          value={stats ? stats.goroutines.toLocaleString() : "—"}
+          detail="Go runtime workers"
+          icon="⤢"
+        />
+      </section>
+
+      <section className="panel severity-breakdown">
+        <div className="panel-heading">
           <div>
-            <div className="eyebrow">SECURITY OPERATIONS / OVERVIEW</div>
-            <h1>System overview</h1>
-            <p className="muted">
-              Live health and runtime activity for your Rasadbin instance.
-            </p>
+            <div className="eyebrow">DETECTION</div>
+            <h2>Severity breakdown</h2>
           </div>
-          <div className={`live-pill ${ws.isConnected ? "is-live" : ""}`}>
-            <span className="live-dot" />
-            {ws.isConnected ? "Live connection" : "Reconnecting"}
-          </div>
-        </section>
+          <span className="metric-chip">{events.length} events</span>
+        </div>
+        <div className="severity-bars">
+          {["critical", "high", "medium", "low", "info"].map((sev) => {
+            const c = severityCounts[sev] ?? 0;
+            const pct = events.length
+              ? Math.round((c / events.length) * 100)
+              : 0;
+            return (
+              <div className="severity-bar-row" key={sev}>
+                <span className={`sev sev-${sev}`}>{sev}</span>
+                <div className="severity-bar-track">
+                  <div
+                    className={`severity-bar-fill sev-${sev}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="severity-bar-count">{c}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
-        <section className="metric-grid" aria-label="System metrics">
-          <Stat
-            label="Uptime"
-            value={stats ? fmtDuration(stats.uptime_seconds) : "—"}
-            detail="Since service start"
-            icon="◷"
-          />
-          <Stat
-            label="Events received"
-            value={stats ? stats.events_total.toLocaleString() : "—"}
-            detail="Lifetime in this process"
-            icon="⌁"
-          />
-          <Stat
-            label="Connected clients"
-            value={stats ? String(stats.clients) : "—"}
-            detail="Authenticated sessions"
-            icon="◎"
-          />
-          <Stat
-            label="Goroutines"
-            value={stats ? stats.goroutines.toLocaleString() : "—"}
-            detail="Go runtime workers"
-            icon="⤢"
-          />
-        </section>
-
-        <section className="panel severity-breakdown">
+      <section className="content-grid">
+        <article className="panel memory-panel">
           <div className="panel-heading">
             <div>
-              <div className="eyebrow">DETECTION</div>
-              <h2>Severity breakdown</h2>
+              <div className="eyebrow">RUNTIME TELEMETRY</div>
+              <h2>Heap memory</h2>
             </div>
-            <span className="metric-chip">{events.length} events</span>
-          </div>
-          <div className="severity-bars">
-            {["critical","high","medium","low","info"].map((sev) => {
-              const c = severityCounts[sev] ?? 0;
-              const pct = events.length ? Math.round((c / events.length) * 100) : 0;
-              return (
-                <div className="severity-bar-row" key={sev}>
-                  <span className={`sev sev-${sev}`}>{sev}</span>
-                  <div className="severity-bar-track">
-                    <div className={`severity-bar-fill sev-${sev}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="severity-bar-count">{c}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="content-grid">
-          <article className="panel memory-panel">
-            <div className="panel-heading">
-              <div>
-                <div className="eyebrow">RUNTIME TELEMETRY</div>
-                <h2>Heap memory</h2>
-              </div>
-              <span className="metric-chip">
-                {stats ? `${stats.heap_mb.toFixed(1)} MB` : "Waiting…"}
-              </span>
-            </div>
-            <HeapChart values={heap} />
-            <div className="chart-foot">
-              <span>Recent samples</span>
-              <span>Auto-updated</span>
-            </div>
-          </article>
-          <article className="panel runtime-panel">
-            <div className="eyebrow">INSTANCE DETAILS</div>
-            <h2>Runtime status</h2>
-            <Detail label="Version" value={stats?.version ?? "—"} />
-            <Detail label="Commit" value={stats?.commit ?? "—"} mono />
-            <Detail
-              label="System memory"
-              value={stats ? `${stats.sys_mb.toFixed(1)} MB` : "—"}
-            />
-            <Detail
-              label="GC cycles"
-              value={stats ? stats.gc_cycles.toLocaleString() : "—"}
-            />
-            <Detail
-              label="Last update"
-              value={
-                stats
-                  ? new Date(stats.time).toLocaleTimeString()
-                  : "Waiting for data"
-              }
-            />
-          </article>
-        </section>
-
-        <section className="panel events-panel">
-          <div className="panel-heading events-heading">
-            <div>
-              <div className="eyebrow">LIVE TELEMETRY</div>
-              <h2>
-                Recent events <span className="count">{events.length}</span>
-              </h2>
-            </div>
-            <Label className="filter-label">
-              Severity
-              <select
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value)}
-              >
-                <option value="all">All events</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-                <option value="info">Info</option>
-              </select>
-            </Label>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Source</th>
-                  <th>Severity</th>
-                  <th>Event</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleEvents.map((e, i) => (
-                  <tr key={`${e.time}-${i}`}>
-                    <td className="time-cell">
-                      {new Date(e.time).toLocaleTimeString()}
-                    </td>
-                    <td>
-                      <span className="source-tag">{e.source || "system"}</span>
-                    </td>
-                    <td>
-                      <span
-                        className={`sev sev-${e.severity.replace(/[^a-z]/g, "")}`}
-                      >
-                        <i />
-                        {e.severity}
-                      </span>
-                    </td>
-                    <td className="event-message">{e.message}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {visibleEvents.length === 0 && (
-              <div className="empty-state">
-                <span className="empty-icon">⌁</span>
-                <strong>
-                  {events.length
-                    ? "No events match this filter"
-                    : "No events collected yet"}
-                </strong>
-                <p>
-                  {events.length
-                    ? "Choose another severity to see more activity."
-                    : "The live feed is ready. Events will appear here when collectors publish them."}
-                </p>
-              </div>
-            )}
-          </div>
-          <footer className="panel-footer">
-            <span>
-              <span className="live-dot" /> Live feed
+            <span className="metric-chip">
+              {stats ? `${stats.heap_mb.toFixed(1)} MB` : "Waiting…"}
             </span>
-            <span>Showing up to {MAX_EVENTS} latest events</span>
-          </footer>
-        </section>
-      </main>
-    </Shell>
+          </div>
+          <HeapChart values={heap} />
+          <div className="chart-foot">
+            <span>Recent samples</span>
+            <span>Auto-updated</span>
+          </div>
+        </article>
+        <article className="panel runtime-panel">
+          <div className="eyebrow">INSTANCE DETAILS</div>
+          <h2>Runtime status</h2>
+          <Detail label="Version" value={stats?.version ?? "—"} />
+          <Detail label="Commit" value={stats?.commit ?? "—"} mono />
+          <Detail
+            label="System memory"
+            value={stats ? `${stats.sys_mb.toFixed(1)} MB` : "—"}
+          />
+          <Detail
+            label="GC cycles"
+            value={stats ? stats.gc_cycles.toLocaleString() : "—"}
+          />
+          <Detail
+            label="Last update"
+            value={
+              stats
+                ? new Date(stats.time).toLocaleTimeString()
+                : "Waiting for data"
+            }
+          />
+        </article>
+      </section>
+
+      <section className="panel events-panel">
+        <div className="panel-heading events-heading">
+          <div>
+            <div className="eyebrow">LIVE TELEMETRY</div>
+            <h2>
+              Recent events <span className="count">{events.length}</span>
+            </h2>
+          </div>
+          <Label className="filter-label">
+            Severity
+            <select
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+            >
+              <option value="all">All events</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+              <option value="info">Info</option>
+            </select>
+          </Label>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Source</th>
+                <th>Severity</th>
+                <th>Event</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleEvents.map((e, i) => (
+                <tr key={`${e.time}-${i}`}>
+                  <td className="time-cell">
+                    {new Date(e.time).toLocaleTimeString()}
+                  </td>
+                  <td>
+                    <span className="source-tag">{e.source || "system"}</span>
+                  </td>
+                  <td>
+                    <span
+                      className={`sev sev-${e.severity.replace(/[^a-z]/g, "")}`}
+                    >
+                      <i />
+                      {e.severity}
+                    </span>
+                  </td>
+                  <td className="event-message">{e.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {visibleEvents.length === 0 && (
+            <div className="empty-state">
+              <span className="empty-icon">⌁</span>
+              <strong>
+                {events.length
+                  ? "No events match this filter"
+                  : "No events collected yet"}
+              </strong>
+              <p>
+                {events.length
+                  ? "Choose another severity to see more activity."
+                  : "The live feed is ready. Events will appear here when collectors publish them."}
+              </p>
+            </div>
+          )}
+        </div>
+        <footer className="panel-footer">
+          <span>
+            <span className="live-dot" /> Live feed
+          </span>
+          <span>Showing up to {MAX_EVENTS} latest events</span>
+        </footer>
+      </section>
+    </main>
   );
 }
 

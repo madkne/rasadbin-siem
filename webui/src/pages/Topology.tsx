@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as RPointerEvent } from "react";
-import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Asset, TopologyLink } from "../lib/types";
 import { AssetGlyph, resolveAssetVisual } from "../components/AssetIcons";
@@ -381,252 +380,247 @@ export default function Topology() {
   );
 
   return (
-    <Shell>
-      <main className="topology-page">
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">NETWORK</p>
-            <h1>Network topology</h1>
-            <p className="muted">
-              Assets and the connections observed between them. Dashed, moving
-              lines carry traffic seen in the last 30 seconds and point from
-              client to server.
-            </p>
-          </div>
-          <span className="integration-count">
-            {visibleAssets.length} assets · {visibleLinks.length} links ·{" "}
-            {liveCount} live
-          </span>
-        </div>
-
-        <section className="discover-querybar">
-          <Input
-            className="discover-search-input"
-            placeholder="Highlight assets by name, IP or tag…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Label className="sort-toggle" style={{ marginLeft: 0 }}>
-            <Input
-              type="checkbox"
-              checked={liveOnly}
-              onChange={(e) => setLiveOnly(e.target.checked)}
-            />
-            Live links only
-          </Label>
-          <Label className="sort-toggle" style={{ marginLeft: 0 }}>
-            <Input
-              type="checkbox"
-              checked={hideIsolated}
-              onChange={(e) => setHideIsolated(e.target.checked)}
-            />
-            Hide assets without connections
-          </Label>
-          <Label className="sort-toggle" style={{ marginLeft: 0 }}>
-            <Input
-              type="checkbox"
-              checked={labels}
-              onChange={(e) => setLabels(e.target.checked)}
-            />
-            Labels
-          </Label>
-        </section>
-
-        {error && (
-          <p className="msg error" role="alert">
-            {error}
+    <main className="topology-page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">NETWORK</p>
+          <h1>Network topology</h1>
+          <p className="muted">
+            Assets and the connections observed between them. Dashed, moving
+            lines carry traffic seen in the last 30 seconds and point from
+            client to server.
           </p>
-        )}
+        </div>
+        <span className="integration-count">
+          {visibleAssets.length} assets · {visibleLinks.length} links ·{" "}
+          {liveCount} live
+        </span>
+      </div>
 
-        <div className="topology-stage">
-          <section className="topology-canvas" aria-label="Network graph">
-            <svg
-              ref={svgRef}
-              className="topo-svg"
-              onPointerDown={onBackgroundDown}
-              onPointerMove={onMove}
-              onPointerUp={onUp}
-              onPointerCancel={onUp}
-            >
-              <g ref={viewRef}>
-                <g>
-                  {visibleLinks.map((l) => {
-                    const live = now - Date.parse(l.last_seen) < LIVE_MS;
-                    return (
-                      <line
-                        key={l.id}
-                        ref={(el) => {
-                          if (el) linkEls.current.set(l.id, el);
-                          else linkEls.current.delete(l.id);
-                        }}
-                        className={`topo-link${live ? " live" : ""}${selectedLinkIds.has(l.id) ? " selected" : ""}`}
-                        strokeWidth={Math.min(
-                          5,
-                          1 + Math.log10(1 + l.packets) * 0.8,
-                        )}
-                      />
-                    );
-                  })}
-                </g>
-                <g>
-                  {visibleAssets.map((a) => {
-                    const active = now - Date.parse(a.last_seen) < ACTIVE_MS;
-                    const cls = [
-                      "topo-node",
-                      active ? "active" : "",
-                      a.origin === "manual" ? "manual" : "",
-                      a.criticality ? `crit-${a.criticality}` : "",
-                      selected === a.id ? "selected" : "",
-                      search.trim() && !matches(a) ? "dim" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ");
-                    return (
-                      <g
-                        key={a.id}
-                        ref={(el) => {
-                          if (el) nodeEls.current.set(a.id, el);
-                          else nodeEls.current.delete(a.id);
-                        }}
-                        className={cls}
-                        onPointerDown={onNodeDown(a.id)}
-                      >
-                        <rect
-                          className="topo-node-background"
-                          x="-27"
-                          y="-27"
-                          width="54"
-                          height="54"
-                          rx="12"
-                        />
-                        <AssetGlyph type={resolveAssetVisual(a)} />
-                        <circle
-                          className="topo-node-status"
-                          cx="19"
-                          cy="-19"
-                          r="4"
-                        />
-                        {labels && (
-                          <>
-                            <text className="topo-node-label" y="43">
-                              {a.name}
-                            </text>
-                            <text className="topo-node-ip" y="56">
-                              {a.ips?.[0] ?? ""}
-                            </text>
-                          </>
-                        )}
-                        <title>{`${a.name}${a.ips?.length ? " · " + a.ips.join(", ") : ""}`}</title>
-                      </g>
-                    );
-                  })}
-                </g>
-              </g>
-            </svg>
+      <section className="discover-querybar">
+        <Input
+          className="discover-search-input"
+          placeholder="Highlight assets by name, IP or tag…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Label className="sort-toggle" style={{ marginLeft: 0 }}>
+          <Input
+            type="checkbox"
+            checked={liveOnly}
+            onChange={(e) => setLiveOnly(e.target.checked)}
+          />
+          Live links only
+        </Label>
+        <Label className="sort-toggle" style={{ marginLeft: 0 }}>
+          <Input
+            type="checkbox"
+            checked={hideIsolated}
+            onChange={(e) => setHideIsolated(e.target.checked)}
+          />
+          Hide assets without connections
+        </Label>
+        <Label className="sort-toggle" style={{ marginLeft: 0 }}>
+          <Input
+            type="checkbox"
+            checked={labels}
+            onChange={(e) => setLabels(e.target.checked)}
+          />
+          Labels
+        </Label>
+      </section>
 
-            <div className="topology-toolbar">
-              <Button type="button" className="ghost" onClick={resetView}>
-                Reset view
-              </Button>
-              <Button type="button" className="ghost" onClick={() => wake(1)}>
-                Re-layout
-              </Button>
-            </div>
-            <div className="topology-legend" aria-hidden>
-              <span className="lg-active">Active asset</span>
-              <span>Idle asset</span>
-              <span className="lg-live">Live connection</span>
-            </div>
-            {assets.length === 0 && (
-              <div className="topology-empty">
-                <div className="empty-state">
-                  <strong>No assets to draw yet</strong>
-                  <p>
-                    Enable the Network packets integration. Connections between
-                    private-range hosts appear here as soon as their packets are
-                    captured.
-                  </p>
-                </div>
-              </div>
-            )}
-            {selectedAsset && (
-              <div className="topology-float-panel" aria-label="Selected asset">
-                <Button
-                  type="button"
-                  className="topology-float-close"
-                  onClick={() => setSelected(null)}
-                  aria-label="Close asset details"
-                >
-                  ×
-                </Button>
-                <div>
-                  <h2>{selectedAsset.name}</h2>
-                  <p className="muted">
-                    {selectedAsset.origin === "manual"
-                      ? "Added manually"
-                      : "Discovered"}
-                  </p>
-                </div>
-                <dl>
-                  {selectedAsset.hostname && (
-                    <>
-                      <dt>Hostname</dt>
-                      <dd>{selectedAsset.hostname}</dd>
-                    </>
-                  )}
-                  <dt>IP addresses</dt>
-                  <dd>{(selectedAsset.ips ?? []).join(", ") || "—"}</dd>
-                  <dt>Services</dt>
-                  <dd>{(selectedAsset.ports ?? []).join(", ") || "—"}</dd>
-                  <dt>Seen via</dt>
-                  <dd>{(selectedAsset.sources ?? []).join(", ")}</dd>
-                  {(selectedAsset.tags ?? []).length > 0 && (
-                    <>
-                      <dt>Tags</dt>
-                      <dd>{selectedAsset.tags.join(", ")}</dd>
-                    </>
-                  )}
-                  <dt>Last seen</dt>
-                  <dd>{new Date(selectedAsset.last_seen).toLocaleString()}</dd>
-                </dl>
-                <h3>Connections ({connections.length})</h3>
-                {connections.length === 0 && (
-                  <p className="muted">
-                    No connections observed for this asset.
-                  </p>
-                )}
-                {connections.map((l) => {
-                  const outgoing = l.source === selectedAsset.id;
-                  const peerId = outgoing ? l.target : l.source;
-                  const peer = byId.get(peerId);
+      {error && (
+        <p className="msg error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="topology-stage">
+        <section className="topology-canvas" aria-label="Network graph">
+          <svg
+            ref={svgRef}
+            className="topo-svg"
+            onPointerDown={onBackgroundDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+          >
+            <g ref={viewRef}>
+              <g>
+                {visibleLinks.map((l) => {
                   const live = now - Date.parse(l.last_seen) < LIVE_MS;
                   return (
-                    <Button
+                    <line
                       key={l.id}
-                      type="button"
-                      className={`topology-conn${live ? " live" : ""}`}
-                      onClick={() => setSelected(peerId)}
-                    >
-                      <strong>
-                        {outgoing ? "→" : "←"} {peer?.name ?? peerId}
-                      </strong>
-                      <small>
-                        {l.protocols.join("/")}
-                        {l.ports.length ? ` · port ${l.ports.join(", ")}` : ""}
-                      </small>
-                      <small>
-                        {l.packets.toLocaleString()} packets ·{" "}
-                        {fmtBytes(l.bytes)}
-                        {live ? " · live" : ""}
-                      </small>
-                    </Button>
+                      ref={(el) => {
+                        if (el) linkEls.current.set(l.id, el);
+                        else linkEls.current.delete(l.id);
+                      }}
+                      className={`topo-link${live ? " live" : ""}${selectedLinkIds.has(l.id) ? " selected" : ""}`}
+                      strokeWidth={Math.min(
+                        5,
+                        1 + Math.log10(1 + l.packets) * 0.8,
+                      )}
+                    />
                   );
                 })}
+              </g>
+              <g>
+                {visibleAssets.map((a) => {
+                  const active = now - Date.parse(a.last_seen) < ACTIVE_MS;
+                  const cls = [
+                    "topo-node",
+                    active ? "active" : "",
+                    a.origin === "manual" ? "manual" : "",
+                    a.criticality ? `crit-${a.criticality}` : "",
+                    selected === a.id ? "selected" : "",
+                    search.trim() && !matches(a) ? "dim" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <g
+                      key={a.id}
+                      ref={(el) => {
+                        if (el) nodeEls.current.set(a.id, el);
+                        else nodeEls.current.delete(a.id);
+                      }}
+                      className={cls}
+                      onPointerDown={onNodeDown(a.id)}
+                    >
+                      <rect
+                        className="topo-node-background"
+                        x="-27"
+                        y="-27"
+                        width="54"
+                        height="54"
+                        rx="12"
+                      />
+                      <AssetGlyph type={resolveAssetVisual(a)} />
+                      <circle
+                        className="topo-node-status"
+                        cx="19"
+                        cy="-19"
+                        r="4"
+                      />
+                      {labels && (
+                        <>
+                          <text className="topo-node-label" y="43">
+                            {a.name}
+                          </text>
+                          <text className="topo-node-ip" y="56">
+                            {a.ips?.[0] ?? ""}
+                          </text>
+                        </>
+                      )}
+                      <title>{`${a.name}${a.ips?.length ? " · " + a.ips.join(", ") : ""}`}</title>
+                    </g>
+                  );
+                })}
+              </g>
+            </g>
+          </svg>
+
+          <div className="topology-toolbar">
+            <Button type="button" className="ghost" onClick={resetView}>
+              Reset view
+            </Button>
+            <Button type="button" className="ghost" onClick={() => wake(1)}>
+              Re-layout
+            </Button>
+          </div>
+          <div className="topology-legend" aria-hidden>
+            <span className="lg-active">Active asset</span>
+            <span>Idle asset</span>
+            <span className="lg-live">Live connection</span>
+          </div>
+          {assets.length === 0 && (
+            <div className="topology-empty">
+              <div className="empty-state">
+                <strong>No assets to draw yet</strong>
+                <p>
+                  Enable the Network packets integration. Connections between
+                  private-range hosts appear here as soon as their packets are
+                  captured.
+                </p>
               </div>
-            )}
-          </section>
-        </div>
-      </main>
-    </Shell>
+            </div>
+          )}
+          {selectedAsset && (
+            <div className="topology-float-panel" aria-label="Selected asset">
+              <Button
+                type="button"
+                className="topology-float-close"
+                onClick={() => setSelected(null)}
+                aria-label="Close asset details"
+              >
+                ×
+              </Button>
+              <div>
+                <h2>{selectedAsset.name}</h2>
+                <p className="muted">
+                  {selectedAsset.origin === "manual"
+                    ? "Added manually"
+                    : "Discovered"}
+                </p>
+              </div>
+              <dl>
+                {selectedAsset.hostname && (
+                  <>
+                    <dt>Hostname</dt>
+                    <dd>{selectedAsset.hostname}</dd>
+                  </>
+                )}
+                <dt>IP addresses</dt>
+                <dd>{(selectedAsset.ips ?? []).join(", ") || "—"}</dd>
+                <dt>Services</dt>
+                <dd>{(selectedAsset.ports ?? []).join(", ") || "—"}</dd>
+                <dt>Seen via</dt>
+                <dd>{(selectedAsset.sources ?? []).join(", ")}</dd>
+                {(selectedAsset.tags ?? []).length > 0 && (
+                  <>
+                    <dt>Tags</dt>
+                    <dd>{selectedAsset.tags.join(", ")}</dd>
+                  </>
+                )}
+                <dt>Last seen</dt>
+                <dd>{new Date(selectedAsset.last_seen).toLocaleString()}</dd>
+              </dl>
+              <h3>Connections ({connections.length})</h3>
+              {connections.length === 0 && (
+                <p className="muted">No connections observed for this asset.</p>
+              )}
+              {connections.map((l) => {
+                const outgoing = l.source === selectedAsset.id;
+                const peerId = outgoing ? l.target : l.source;
+                const peer = byId.get(peerId);
+                const live = now - Date.parse(l.last_seen) < LIVE_MS;
+                return (
+                  <Button
+                    key={l.id}
+                    type="button"
+                    className={`topology-conn${live ? " live" : ""}`}
+                    onClick={() => setSelected(peerId)}
+                  >
+                    <strong>
+                      {outgoing ? "→" : "←"} {peer?.name ?? peerId}
+                    </strong>
+                    <small>
+                      {l.protocols.join("/")}
+                      {l.ports.length ? ` · port ${l.ports.join(", ")}` : ""}
+                    </small>
+                    <small>
+                      {l.packets.toLocaleString()} packets · {fmtBytes(l.bytes)}
+                      {live ? " · live" : ""}
+                    </small>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
   );
 }

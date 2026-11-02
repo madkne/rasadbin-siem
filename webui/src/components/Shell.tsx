@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ws } from "../lib/ws";
 import type { Alert, Identity } from "../lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
+import { createContext, useContext, useEffect, useState } from "react";
+const InShell = createContext(false);
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: "D", admin: false },
@@ -17,8 +18,12 @@ const NAV = [
   { to: "/profiles", label: "Profiles", icon: "P", admin: true },
   { to: "/settings", label: "Settings", icon: "T", admin: true },
 ];
-
 export default function Shell({ children }: { children: React.ReactNode }) {
+  if (useContext(InShell)) return <>{children}</>;
+  return <ShellFrame>{children}</ShellFrame>;
+}
+
+function ShellFrame({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
@@ -26,6 +31,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
+
   useEffect(() => {
     const offStatus = ws.onStatus(setConnected);
     const offReady = ws.on("ready", (identity) => {
@@ -56,37 +62,62 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const alertCount = alerts.length;
+  const alertCount = alerts.filter((a) =>
+    ["new", "acknowledged", "investigating"].includes(a.status),
+  ).length;
 
   useEffect(() => {
     setNavOpen(false);
   }, [pathname]);
 
   useEffect(() => {
+    let armed = false;
+    let timer: number | undefined;
+    const disarm = () => {
+      armed = false;
+      window.clearTimeout(timer);
+    };
     function onKey(e: KeyboardEvent) {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.altKey || e.shiftKey) return;
-      const target = e.target as HTMLElement | null;
+      if (e.key === "Escape") setNavOpen(false);
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
       if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable)
-      ) {
+        t &&
+        (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)
+      )
+        return;
+      if (document.querySelector('[role="dialog"]')) return;
+      const key = e.key.toUpperCase();
+      if (!armed) {
+        if (key === "G" && !e.shiftKey) {
+          armed = true;
+          timer = window.setTimeout(disarm, 1200);
+        }
         return;
       }
-      const key = e.key.toUpperCase();
+      disarm();
       const item = NAV.find(
         (n) => n.icon === key && (!n.admin || me?.role === "admin"),
       );
-      if (!item) return;
-      e.preventDefault();
-      navigate(item.to);
+      if (item) {
+        e.preventDefault();
+        navigate(item.to);
+      }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      disarm();
+    };
   }, [navigate, me]);
+
+  function signOut() {
+    if (ws.isReady) ws.send("logout");
+    else {
+      ws.setToken(null);
+      location.replace("/login");
+    }
+  }
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -123,7 +154,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               n.to === "/integrations"
                 ? pathname.startsWith("/integrations")
                 : pathname === n.to;
-             return (
+            return (
               <Link
                 key={n.to}
                 to={n.to}
@@ -188,7 +219,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             variant="ghost"
             className="topbar-signout"
             type="button"
-            onClick={() => ws.send("logout")}
+            onClick={() => signOut()}
           >
             Sign out
           </Button>

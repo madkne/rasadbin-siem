@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import Shell from "../components/Shell";
 import { useSearchParams } from "react-router-dom";
 import { ws } from "../lib/ws";
 import type { SearchQuery, SearchResult } from "../lib/types";
@@ -177,260 +176,253 @@ export default function Discover() {
   }
 
   return (
-    <Shell>
-      <main className="discover-page">
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">LOG EXPLORATION</p>
-            <h1>Discover</h1>
-            <p className="muted">
-              Search, filter and inspect collected events.
-            </p>
-          </div>
-          <Label className="refresh-label">
-            Refresh
-            <select
-              value={refreshMs}
-              onChange={(e) => setRefreshMs(Number(e.target.value))}
-            >
-              {REFRESH_OPTIONS.map((o) => (
-                <option key={o.ms} value={o.ms}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </Label>
+    <main className="discover-page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">LOG EXPLORATION</p>
+          <h1>Discover</h1>
+          <p className="muted">Search, filter and inspect collected events.</p>
         </div>
-
-        {/* Query bar */}
-        <section className="discover-querybar">
-          <Input
-            className="discover-search-input"
-            placeholder="Search message or source…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") runSearch();
-            }}
-          />
+        <Label className="refresh-label">
+          Refresh
           <select
-            value={severity}
-            onChange={(e) => setSeverity(e.target.value)}
-            aria-label="Severity"
+            value={refreshMs}
+            onChange={(e) => setRefreshMs(Number(e.target.value))}
           >
-            <option value="">All severities</option>
-            {SEVERITIES.map((s) => (
-              <option key={s} value={s}>
-                {s}
+            {REFRESH_OPTIONS.map((o) => (
+              <option key={o.ms} value={o.ms}>
+                {o.label}
               </option>
             ))}
           </select>
-          <Input
-            type="datetime-local"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            aria-label="From"
-          />
-          <Input
-            type="datetime-local"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            aria-label="To"
-          />
-          <Button type="button" onClick={runSearch} disabled={loading}>
-            {loading ? "Searching…" : "Search"}
-          </Button>
-          <Button
-            type="button"
-            className="ghost"
-            onClick={() => {
-              setQuery("");
-              setSeverity("");
-              setSelectedSources([]);
-              setFrom("");
-              setTo("");
-            }}
-          >
-            Reset
-          </Button>
-          <Button
-            type="button"
-            className="ghost"
-            onClick={exportJson}
-            disabled={loading}
-          >
-            Export JSON
-          </Button>
-        </section>
+        </Label>
+      </div>
 
-        {/* Source filter chips */}
-        {sources.length > 0 && (
-          <section className="discover-sources" aria-label="Source filters">
-            <span className="filter-label-text">Sources:</span>
-            {sources.map((s) => (
-              <Button
-                key={s}
-                type="button"
-                className={`chip ${selectedSources.includes(s) ? "chip-on" : ""}`}
-                onClick={() => toggleSource(s)}
-                aria-pressed={selectedSources.includes(s)}
-              >
-                {s || "system"}
-              </Button>
-            ))}
-            <Label className="sort-toggle">
-              <Input
-                type="checkbox"
-                checked={sortDesc}
-                onChange={(e) => setSortDesc(e.target.checked)}
-              />
-              Newest first
-            </Label>
-          </section>
-        )}
+      {/* Query bar */}
+      <section className="discover-querybar">
+        <Input
+          className="discover-search-input"
+          placeholder="Search message or source…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") runSearch();
+          }}
+        />
+        <select
+          value={severity}
+          onChange={(e) => setSeverity(e.target.value)}
+          aria-label="Severity"
+        >
+          <option value="">All severities</option>
+          {SEVERITIES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <Input
+          type="datetime-local"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          aria-label="From"
+        />
+        <Input
+          type="datetime-local"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          aria-label="To"
+        />
+        <Button type="button" onClick={runSearch} disabled={loading}>
+          {loading ? "Searching…" : "Search"}
+        </Button>
+        <Button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            setQuery("");
+            setSeverity("");
+            setSelectedSources([]);
+            setFrom("");
+            setTo("");
+          }}
+        >
+          Reset
+        </Button>
+        <Button
+          type="button"
+          className="ghost"
+          onClick={exportJson}
+          disabled={loading}
+        >
+          Export JSON
+        </Button>
+      </section>
 
-        {error && (
-          <p className="msg error" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className="discover-layout">
-          <aside className="discover-fields" aria-label="Field summary">
-            <h3>Fields</h3>
-            <div className="discover-field">
-              <span>source</span>
-              <span className="muted">{sourceCounts.length} values</span>
-            </div>
-            {sourceCounts.map(([s, c]) => (
-              <Button
-                key={s}
-                type="button"
-                className={`discover-field-value ${selectedSources.includes(s) ? "on" : ""}`}
-                onClick={() => toggleSource(s)}
-              >
-                <span>{s}</span>
-                <span>{c}</span>
-              </Button>
-            ))}
-            <div className="discover-field">
-              <span>severity</span>
-            </div>
-            {["critical", "high", "medium", "low", "info"].map((sv) => {
-              const c = (result?.events ?? []).filter(
-                (e) => e.severity === sv,
-              ).length;
-              return (
-                <div key={sv} className="discover-field-value static">
-                  <span className={`sev sev-${sv}`}>{sv}</span>
-                  <span>{c}</span>
-                </div>
-              );
-            })}
-          </aside>
-          <div className="discover-main">
-            {/* Histogram */}
-            <section
-              className="discover-histogram"
-              aria-label="Event histogram"
+      {/* Source filter chips */}
+      {sources.length > 0 && (
+        <section className="discover-sources" aria-label="Source filters">
+          <span className="filter-label-text">Sources:</span>
+          {sources.map((s) => (
+            <Button
+              key={s}
+              type="button"
+              className={`chip ${selectedSources.includes(s) ? "chip-on" : ""}`}
+              onClick={() => toggleSource(s)}
+              aria-pressed={selectedSources.includes(s)}
             >
-              {result?.buckets?.length ? (
-                <div className="bars">
-                  {result.buckets.map((b, i) => (
-                    <div
-                      key={i}
-                      className="bar-wrap"
-                      title={`${new Date(b.time).toLocaleTimeString()} · ${b.count}`}
-                    >
-                      <div
-                        className="bar"
-                        style={{ height: `${(b.count / maxBucket) * 100}%` }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="muted">No events in the selected window.</p>
-              )}
-              <div className="histogram-meta">
-                <span>{result ? `${result.total} matching events` : "—"}</span>
-                {result && (
-                  <span>
-                    {result.took_ms.toFixed(1)} ms · showing{" "}
-                    {result.events.length}
-                  </span>
-                )}
-              </div>
-            </section>
+              {s || "system"}
+            </Button>
+          ))}
+          <Label className="sort-toggle">
+            <Input
+              type="checkbox"
+              checked={sortDesc}
+              onChange={(e) => setSortDesc(e.target.checked)}
+            />
+            Newest first
+          </Label>
+        </section>
+      )}
 
-            {/* Results table */}
-            <section className="discover-results">
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 140 }}>Time</th>
-                      <th style={{ width: 140 }}>Source</th>
-                      <th style={{ width: 100 }}>Severity</th>
-                      <th>Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result?.events.map((e, i) => {
-                      const key = `${e.time}-${i}`;
-                      const open = expanded === key;
-                      return (
-                        <Fragment key={key}>
-                          <tr
-                            className={`discover-row ${open ? "expanded" : ""}`}
-                            onClick={() => setExpanded(open ? null : key)}
-                            tabIndex={0}
-                            onKeyDown={(ev) => {
-                              if (ev.key === "Enter")
-                                setExpanded(open ? null : key);
-                            }}
-                          >
-                            <td className="time-cell">
-                              {new Date(e.time).toLocaleString()}
-                            </td>
-                            <td>
-                              <span className="source-tag">
-                                {e.source || "system"}
-                              </span>
-                            </td>
-                            <td>
-                              <span
-                                className={`sev sev-${e.severity.replace(/[^a-z]/g, "")}`}
-                              >
-                                <i />
-                                {e.severity}
-                              </span>
-                            </td>
-                            <td className="event-message">{e.message}</td>
-                          </tr>
-                          {open && (
-                            <tr key={key + "-doc"} className="discover-doc">
-                              <td colSpan={4}>
-                                <pre>{JSON.stringify(e, null, 2)}</pre>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {result && result.events.length === 0 && (
-                  <div className="empty-state">
-                    <strong>No matching events</strong>
-                    <p>Adjust the query, severity, sources or time range.</p>
-                  </div>
-                )}
-              </div>
-            </section>
+      {error && (
+        <p className="msg error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="discover-layout">
+        <aside className="discover-fields" aria-label="Field summary">
+          <h3>Fields</h3>
+          <div className="discover-field">
+            <span>source</span>
+            <span className="muted">{sourceCounts.length} values</span>
           </div>
+          {sourceCounts.map(([s, c]) => (
+            <Button
+              key={s}
+              type="button"
+              className={`discover-field-value ${selectedSources.includes(s) ? "on" : ""}`}
+              onClick={() => toggleSource(s)}
+            >
+              <span>{s}</span>
+              <span>{c}</span>
+            </Button>
+          ))}
+          <div className="discover-field">
+            <span>severity</span>
+          </div>
+          {["critical", "high", "medium", "low", "info"].map((sv) => {
+            const c = (result?.events ?? []).filter(
+              (e) => e.severity === sv,
+            ).length;
+            return (
+              <div key={sv} className="discover-field-value static">
+                <span className={`sev sev-${sv}`}>{sv}</span>
+                <span>{c}</span>
+              </div>
+            );
+          })}
+        </aside>
+        <div className="discover-main">
+          {/* Histogram */}
+          <section className="discover-histogram" aria-label="Event histogram">
+            {result?.buckets?.length ? (
+              <div className="bars">
+                {result.buckets.map((b, i) => (
+                  <div
+                    key={i}
+                    className="bar-wrap"
+                    title={`${new Date(b.time).toLocaleTimeString()} · ${b.count}`}
+                  >
+                    <div
+                      className="bar"
+                      style={{ height: `${(b.count / maxBucket) * 100}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">No events in the selected window.</p>
+            )}
+            <div className="histogram-meta">
+              <span>{result ? `${result.total} matching events` : "—"}</span>
+              {result && (
+                <span>
+                  {result.took_ms.toFixed(1)} ms · showing{" "}
+                  {result.events.length}
+                </span>
+              )}
+            </div>
+          </section>
+
+          {/* Results table */}
+          <section className="discover-results">
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 140 }}>Time</th>
+                    <th style={{ width: 140 }}>Source</th>
+                    <th style={{ width: 100 }}>Severity</th>
+                    <th>Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result?.events.map((e, i) => {
+                    const key = `${e.time}-${i}`;
+                    const open = expanded === key;
+                    return (
+                      <Fragment key={key}>
+                        <tr
+                          className={`discover-row ${open ? "expanded" : ""}`}
+                          onClick={() => setExpanded(open ? null : key)}
+                          tabIndex={0}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter")
+                              setExpanded(open ? null : key);
+                          }}
+                        >
+                          <td className="time-cell">
+                            {new Date(e.time).toLocaleString()}
+                          </td>
+                          <td>
+                            <span className="source-tag">
+                              {e.source || "system"}
+                            </span>
+                          </td>
+                          <td>
+                            <span
+                              className={`sev sev-${e.severity.replace(/[^a-z]/g, "")}`}
+                            >
+                              <i />
+                              {e.severity}
+                            </span>
+                          </td>
+                          <td className="event-message">{e.message}</td>
+                        </tr>
+                        {open && (
+                          <tr key={key + "-doc"} className="discover-doc">
+                            <td colSpan={4}>
+                              <pre>{JSON.stringify(e, null, 2)}</pre>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {result && result.events.length === 0 && (
+                <div className="empty-state">
+                  <strong>No matching events</strong>
+                  <p>Adjust the query, severity, sources or time range.</p>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
-      </main>
-    </Shell>
+      </div>
+    </main>
   );
 }

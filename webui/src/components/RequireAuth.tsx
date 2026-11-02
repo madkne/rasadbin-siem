@@ -11,7 +11,7 @@ interface Props {
 // Waits for the socket to authenticate before rendering. If the token is
 // missing or the session has expired, redirects to /login.
 export default function RequireAuth({ children, requireAdmin }: Props) {
-  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [identity, setIdentity] = useState<Identity | null>(ws.currentIdentity);
   const [failed, setFailed] = useState(!ws.token);
 
   useEffect(() => {
@@ -30,7 +30,12 @@ export default function RequireAuth({ children, requireAdmin }: Props) {
   }, []);
 
   if (failed) return <Navigate to="/login" replace />;
-  if (!identity) return <p className="muted" style={{ padding: 24 }}>Connecting…</p>;
+  if (!identity)
+    return (
+      <p className="muted" style={{ padding: 24 }}>
+        Connecting…
+      </p>
+    );
   if (requireAdmin && identity.role !== "admin") {
     return <Navigate to="/dashboard" replace />;
   }

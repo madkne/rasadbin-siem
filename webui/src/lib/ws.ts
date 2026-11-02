@@ -27,13 +27,20 @@ class WebSocketClient {
   get isConnected(): boolean {
     return this.connected;
   }
-
+  get currentIdentity(): Identity | null {
+    return this.identity;
+  }
   setToken(token: string | null) {
     if (token) sessionStorage.setItem(TOKEN_KEY, token);
     else sessionStorage.removeItem(TOKEN_KEY);
   }
 
-  on<K extends string = string>(type: K, fn: (data: K extends keyof WsMessageMap ? WsMessageMap[K] : unknown) => void): () => void {
+  on<K extends string = string>(
+    type: K,
+    fn: (
+      data: K extends keyof WsMessageMap ? WsMessageMap[K] : unknown,
+    ) => void,
+  ): () => void {
     let set = this.handlers.get(type);
     if (!set) {
       set = new Set();
@@ -42,7 +49,8 @@ class WebSocketClient {
     set.add(fn as Handler);
     // Authentication can finish before protected components mount. Replay the
     // latest identity so those components don't miss the one-time ready event.
-    if (type === "ready" && this.ready && this.identity) (fn as Handler)(this.identity);
+    if (type === "ready" && this.ready && this.identity)
+      (fn as Handler)(this.identity);
     return () => set!.delete(fn as Handler);
   }
 
