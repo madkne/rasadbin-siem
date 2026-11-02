@@ -13,6 +13,9 @@ const CRITICALITIES: { value: Criticality; label: string }[] = [
   { value: "critical", label: "Critical" },
 ];
 
+const SELECT_CLASS =
+  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
 export function emptyDraft(): AssetDraft {
   return {
     ips: "",
@@ -105,40 +108,48 @@ export default function AssetEditor({
       <div className="asset-editor-grid">
         {!isEdit && (
           <>
-            <Label>
+            <Label htmlFor="asset-ips">
               IP addresses
               <Input
+                id="asset-ips"
                 value={draft.ips}
                 onChange={(e) => setDraft({ ...draft, ips: e.target.value })}
                 placeholder="10.0.0.5, 10.0.0.6"
                 autoComplete="off"
+                disabled={busy}
+                autoFocus
               />
               <small>
                 Comma or space separated. The first IP becomes the asset ID.
               </small>
             </Label>
-            <Label>
+            <Label htmlFor="asset-hostname">
               Hostname
               <Input
+                id="asset-hostname"
                 value={draft.hostname}
                 onChange={(e) =>
                   setDraft({ ...draft, hostname: e.target.value })
                 }
                 placeholder="plc-line1.example"
                 autoComplete="off"
+                disabled={busy}
               />
               <small>Required if no IP address is provided.</small>
             </Label>
           </>
         )}
 
-        <Label>
+        <Label htmlFor="asset-name">
           Display name
           <Input
+            id="asset-name"
             value={draft.name}
             maxLength={128}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             placeholder={asset?.ips?.[0] ?? asset?.hostname ?? "PLC Line 1"}
+            disabled={busy}
+            autoFocus={isEdit}
           />
           <small>Overrides the auto-derived name shown in the inventory.</small>
         </Label>
@@ -149,13 +160,16 @@ export default function AssetEditor({
           </div>
 
           <div className="asset-editor-grid">
-            <Label>
+            <Label htmlFor="asset-device-type">
               Device Type
               <select
+                id="asset-device-type"
+                className={SELECT_CLASS}
                 value={draft.device_type}
                 onChange={(e) =>
                   setDraft({ ...draft, device_type: e.target.value })
                 }
+                disabled={busy}
               >
                 <option value="">Unknown</option>
                 <option value="workstation">Workstation</option>
@@ -173,37 +187,43 @@ export default function AssetEditor({
               </select>
             </Label>
 
-            <Label>
+            <Label htmlFor="asset-device-role">
               Device Role
               <Input
+                id="asset-device-role"
                 value={draft.device_role}
                 maxLength={128}
                 onChange={(e) =>
                   setDraft({ ...draft, device_role: e.target.value })
                 }
                 placeholder="Domain Controller, Engineering Station..."
+                disabled={busy}
               />
             </Label>
 
-            <Label>
+            <Label htmlFor="asset-manufacturer">
               Manufacturer
               <Input
+                id="asset-manufacturer"
                 value={draft.manufacturer}
                 maxLength={128}
                 onChange={(e) =>
                   setDraft({ ...draft, manufacturer: e.target.value })
                 }
                 placeholder="Siemens, Schneider Electric, Dell..."
+                disabled={busy}
               />
             </Label>
 
-            <Label>
+            <Label htmlFor="asset-model">
               Model
               <Input
+                id="asset-model"
                 value={draft.model}
                 maxLength={128}
                 onChange={(e) => setDraft({ ...draft, model: e.target.value })}
                 placeholder="S7-1500, PowerEdge R750..."
+                disabled={busy}
               />
             </Label>
           </div>
@@ -216,38 +236,45 @@ export default function AssetEditor({
           </div>
 
           <div className="asset-editor-grid">
-            <Label>
+            <Label htmlFor="asset-os">
               Operating System
               <Input
+                id="asset-os"
                 value={draft.operating_system}
                 maxLength={128}
                 onChange={(e) =>
                   setDraft({ ...draft, operating_system: e.target.value })
                 }
                 placeholder="Windows Server, Ubuntu, VxWorks..."
+                disabled={busy}
               />
             </Label>
 
-            <Label>
+            <Label htmlFor="asset-os-version">
               OS Version
               <Input
+                id="asset-os-version"
                 value={draft.os_version}
                 maxLength={128}
                 onChange={(e) =>
                   setDraft({ ...draft, os_version: e.target.value })
                 }
                 placeholder="2022, 22.04, 7.5..."
+                disabled={busy}
               />
             </Label>
           </div>
         </div>
-        <Label>
+        <Label htmlFor="asset-criticality">
           Criticality
           <select
+            id="asset-criticality"
+            className={SELECT_CLASS}
             value={draft.criticality}
             onChange={(e) =>
               setDraft({ ...draft, criticality: e.target.value as Criticality })
             }
+            disabled={busy}
           >
             {CRITICALITIES.map((c) => (
               <option key={c.value || "unset"} value={c.value}>
@@ -258,9 +285,10 @@ export default function AssetEditor({
         </Label>
       </div>
 
-      <Label className="asset-editor-tags">
+      <Label className="asset-editor-tags" htmlFor="asset-tags">
         Tags
         <TagsInput
+          id="asset-tags"
           value={draft.tags}
           onChange={(tags) => setDraft({ ...draft, tags })}
           suggestions={tagSuggestions}

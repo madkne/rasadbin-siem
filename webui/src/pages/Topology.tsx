@@ -507,14 +507,14 @@ export default function Topology() {
                       {labels && (
                         <>
                           <text className="topo-node-label" y="43">
-                            {a.name}
+                            {a.name ?? a.hostname}
                           </text>
                           <text className="topo-node-ip" y="56">
                             {a.ips?.[0] ?? ""}
                           </text>
                         </>
                       )}
-                      <title>{`${a.name}${a.ips?.length ? " · " + a.ips.join(", ") : ""}`}</title>
+                      <title>{`${a.ips?.length ? a.ips.join(", ") : ""}`}</title>
                     </g>
                   );
                 })}

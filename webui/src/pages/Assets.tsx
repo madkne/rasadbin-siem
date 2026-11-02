@@ -254,16 +254,6 @@ export default function Assets() {
               : "Add a manual asset to the inventory. Provide an IP address or hostname."
           }
           onClose={() => setEditor(null)}
-          footer={
-            <Button
-              type="button"
-              className="ghost"
-              onClick={() => setEditor(null)}
-              disabled={!!savingId}
-            >
-              Cancel
-            </Button>
-          }
         >
           <AssetEditor
             key={editor.mode === "edit" ? editor.asset.id : "new-asset"}
@@ -370,36 +360,273 @@ export default function Assets() {
                     {open && (
                       <tr className="discover-doc">
                         <td colSpan={6}>
-                          <div className="asset-enrichment-summary">
-                            <strong>
-                              Enrichment: {a.enrichment_status || "not started"}
-                            </strong>
-                            {a.mac_addresses?.length ? (
-                              <p>MAC: {a.mac_addresses.join(", ")}</p>
+                          <div className="asset-details">
+                            <div className="asset-details-head">
+                              <div>
+                                <h3>{a.name}</h3>
+                                <p className="muted">
+                                  {a.origin === "manual"
+                                    ? "Added manually"
+                                    : "Discovered"}{" "}
+                                  · {isActive(a) ? "Active" : "Idle"}
+                                  {a.criticality
+                                    ? ` · ${a.criticality} criticality`
+                                    : ""}
+                                </p>
+                              </div>
+                              <div className="asset-chips">
+                                {(a.ips ?? []).map((ip) => (
+                                  <span key={ip} className="asset-chip">
+                                    {ip}
+                                  </span>
+                                ))}
+                                {(a.sources ?? []).map((s) => (
+                                  <span key={s} className="source-tag">
+                                    {SOURCE_LABEL[s] ?? s}
+                                  </span>
+                                ))}
+                              </div>
+                              <Button
+                                type="button"
+                                className="ghost"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setEditor({ mode: "edit", asset: a });
+                                }}
+                              >
+                                Edit asset
+                              </Button>
+                            </div>
+
+                            <div className="asset-details-grid">
+                              <section className="asset-details-section">
+                                <h4>Identity</h4>
+                                {a.hostname ? (
+                                  <div className="detail-row">
+                                    <span>Hostname</span>
+                                    <strong>{a.hostname}</strong>
+                                  </div>
+                                ) : null}
+                                {a.device_type ? (
+                                  <div className="detail-row">
+                                    <span>Device type</span>
+                                    <strong>{a.device_type}</strong>
+                                  </div>
+                                ) : null}
+                                {a.device_role ? (
+                                  <div className="detail-row">
+                                    <span>Device role</span>
+                                    <strong>{a.device_role}</strong>
+                                  </div>
+                                ) : null}
+                                {a.manufacturer ? (
+                                  <div className="detail-row">
+                                    <span>Manufacturer</span>
+                                    <strong>{a.manufacturer}</strong>
+                                  </div>
+                                ) : null}
+                                {a.model ? (
+                                  <div className="detail-row">
+                                    <span>Model</span>
+                                    <strong>{a.model}</strong>
+                                  </div>
+                                ) : null}
+                                {a.operating_system ? (
+                                  <div className="detail-row">
+                                    <span>Operating system</span>
+                                    <strong>
+                                      {a.operating_system}
+                                      {a.os_version ? ` ${a.os_version}` : ""}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                                {a.criticality ? (
+                                  <div className="detail-row">
+                                    <span>Criticality</span>
+                                    <strong>{a.criticality}</strong>
+                                  </div>
+                                ) : null}
+                                <div className="detail-row">
+                                  <span>Origin</span>
+                                  <strong>
+                                    {a.origin === "manual"
+                                      ? "Manual"
+                                      : "Discovered"}
+                                  </strong>
+                                </div>
+                                <div className="detail-row">
+                                  <span>Archived</span>
+                                  <strong>{a.archived ? "Yes" : "No"}</strong>
+                                </div>
+                              </section>
+
+                              <section className="asset-details-section">
+                                <h4>Network</h4>
+                                <div className="detail-row">
+                                  <span>IP addresses</span>
+                                  <strong>
+                                    {(a.ips ?? []).join(", ") || "—"}
+                                  </strong>
+                                </div>
+                                {a.mac_addresses?.length ? (
+                                  <div className="detail-row">
+                                    <span>MAC addresses</span>
+                                    <strong>
+                                      {a.mac_addresses.join(", ")}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                                {(a.ports ?? []).length > 0 ? (
+                                  <div className="detail-row">
+                                    <span>Ports</span>
+                                    <strong>
+                                      {(a.ports ?? []).join(", ")}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                                {a.protocols?.length ? (
+                                  <div className="detail-row">
+                                    <span>Protocols</span>
+                                    <strong>
+                                      {a.protocols.join(", ")}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                                {(a.sources ?? []).length > 0 ? (
+                                  <div className="detail-row">
+                                    <span>Seen via</span>
+                                    <strong>
+                                      {(a.sources ?? [])
+                                        .map((s) => SOURCE_LABEL[s] ?? s)
+                                        .join(", ")}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                                <div className="detail-row">
+                                  <span>First seen</span>
+                                  <strong>
+                                    {new Date(a.first_seen).toLocaleString()}
+                                  </strong>
+                                </div>
+                                <div className="detail-row">
+                                  <span>Last seen</span>
+                                  <strong>
+                                    {new Date(a.last_seen).toLocaleString()}
+                                  </strong>
+                                </div>
+                                <div className="detail-row">
+                                  <span>Event count</span>
+                                  <strong>{a.event_count}</strong>
+                                </div>
+                              </section>
+                            </div>
+
+                            {a.tags?.length ? (
+                              <section className="asset-details-section">
+                                <h4>Tags</h4>
+                                <div className="asset-chips">
+                                  {a.tags.map((tag) => (
+                                    <span key={tag} className="asset-chip">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </section>
                             ) : null}
-                            {a.protocols?.length ? (
-                              <p>Protocols: {a.protocols.join(", ")}</p>
+
+                            {(a.services ?? []).length > 0 ? (
+                              <section className="asset-details-section">
+                                <h4>
+                                  Services ({(a.services ?? []).length})
+                                </h4>
+                                <div className="asset-service-list">
+                                  {(a.services ?? []).map((svc) => (
+                                    <div
+                                      key={`${svc.transport}-${svc.port}-${svc.name}`}
+                                      className="asset-service-row"
+                                    >
+                                      <strong>
+                                        {svc.name} :{svc.port}
+                                      </strong>
+                                      <span>
+                                        {svc.transport.toUpperCase()}
+                                        {svc.protocol
+                                          ? ` · ${svc.protocol}`
+                                          : ""}
+                                        {" · "}
+                                        {Math.round(svc.confidence * 100)}%
+                                        confidence
+                                      </span>
+                                      <small className="muted">
+                                        {svc.source} ·{" "}
+                                        {new Date(
+                                          svc.observed_at,
+                                        ).toLocaleString()}
+                                      </small>
+                                    </div>
+                                  ))}
+                                </div>
+                              </section>
                             ) : null}
-                            {a.enrichment_error ? (
-                              <p className="msg error">{a.enrichment_error}</p>
-                            ) : null}
-                            {a.enrichment_evidence?.length ? (
-                              <p>
-                                Evidence: {a.enrichment_evidence.length} records
-                              </p>
-                            ) : null}
+
+                            <section className="asset-details-section">
+                              <h4>Enrichment</h4>
+                              <div className="detail-row">
+                                <span>Status</span>
+                                <strong>
+                                  {a.enrichment_status || "not started"}
+                                </strong>
+                              </div>
+                              <div className="detail-row">
+                                <span>Attempts</span>
+                                <strong>{a.enrichment_attempts}</strong>
+                              </div>
+                              {a.last_enriched_at ? (
+                                <div className="detail-row">
+                                  <span>Last enriched</span>
+                                  <strong>
+                                    {new Date(
+                                      a.last_enriched_at,
+                                    ).toLocaleString()}
+                                  </strong>
+                                </div>
+                              ) : null}
+                              {a.next_enrichment_at ? (
+                                <div className="detail-row">
+                                  <span>Next enrichment</span>
+                                  <strong>
+                                    {new Date(
+                                      a.next_enrichment_at,
+                                    ).toLocaleString()}
+                                  </strong>
+                                </div>
+                              ) : null}
+                              {a.enrichment_error ? (
+                                <p className="msg error">
+                                  {a.enrichment_error}
+                                </p>
+                              ) : null}
+                              {a.enrichment_evidence?.length ? (
+                                <div className="asset-evidence-list">
+                                  {a.enrichment_evidence.map((ev, i) => (
+                                    <div
+                                      key={`${ev.field}-${i}`}
+                                      className="asset-evidence-row"
+                                    >
+                                      <strong>{ev.field}</strong>: {ev.value}
+                                      <small className="muted">
+                                        {ev.source} ·{" "}
+                                        {Math.round(ev.confidence * 100)}% ·{" "}
+                                        {new Date(
+                                          ev.observed_at,
+                                        ).toLocaleString()}
+                                      </small>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </section>
                           </div>
-                          <Button
-                            type="button"
-                            className="ghost"
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              setEditor({ mode: "edit", asset: a });
-                            }}
-                          >
-                            Edit asset
-                          </Button>
-                          <pre>{JSON.stringify(a, null, 2)}</pre>
                         </td>
                       </tr>
                     )}
