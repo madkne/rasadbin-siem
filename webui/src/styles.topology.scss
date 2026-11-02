@@ -200,3 +200,96 @@
     animation: none;
   }
 }
+
+
+/* Asset SVG nodes */
+
+.topo-node {
+  cursor: pointer;
+  color: #8ca7c5;
+}
+
+.topo-node-background {
+  fill: #172638;
+  stroke: #405773;
+  stroke-width: 1.5;
+  transition: fill .2s, stroke .2s;
+}
+
+.topo-node.active .topo-node-background {
+  fill: #183b36;
+  stroke: #35c99a;
+}
+
+.topo-node.manual .topo-node-background {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.topo-node.crit-high .topo-node-background,
+.topo-node.crit-critical .topo-node-background {
+  stroke: #ff6b75;
+}
+
+.topo-node.selected .topo-node-background {
+  stroke: #f5c76b;
+  stroke-width: 3;
+}
+
+.topo-node-status {
+  fill: #64748b;
+  stroke: #0b121c;
+  stroke-width: 2;
+}
+
+.topo-node.active .topo-node-status {
+  fill: #35d49a;
+}
+
+.topo-node.crit-high .topo-node-status,
+.topo-node.crit-critical .topo-node-status {
+  fill: #ff6b75;
+}
+
+.asset-glyph {
+  pointer-events: none;
+}
+
+.glyph-workstation { color: #75baff; }
+.glyph-server { color: #a8b8d7; }
+.glyph-plc { color: #f0b85e; }
+.glyph-firewall { color: #ff8585; }
+.glyph-switch { color: #7dd3c7; }
+.glyph-router { color: #a995ff; }
+.glyph-hmi { color: #58d5d0; }
+.glyph-sensor { color: #a6d58c; }
+.glyph-unknown { color: #8495aa; }
+
+.topo-node-label {
+  fill: #e0eaf5;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: #0b121c;
+  stroke-width: 3px;
+}
+
+.topo-node-ip {
+  fill: #8298b2;
+  font-size: 9px;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: #0b121c;
+  stroke-width: 2px;
+}
+
+.topo-node.dim {
+  opacity: .18;
+}
+
+.topo-node.selected {
+  filter: drop-shadow(0 0 7px #f5c76b66);
+}

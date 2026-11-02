@@ -3,6 +3,7 @@ import type { PointerEvent as RPointerEvent } from "react";
 import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Asset, TopologyLink } from "../lib/types";
+import { AssetGlyph, resolveAssetVisual } from "../components/AssetIcons";
 
 const LIVE_MS = 30_000; // a link is "live" if traffic was seen this recently
 const ACTIVE_MS = 15 * 60_000; // an asset is "active" within this window
@@ -478,7 +479,35 @@ export default function Topology() {
                         className={cls}
                         onPointerDown={onNodeDown(a.id)}
                       >
-                        <circle r={r} />
+                        <rect
+                          className="topo-node-background"
+                          x="-27"
+                          y="-27"
+                          width="54"
+                          height="54"
+                          rx="12"
+                        />
+
+                        <circle
+                          className="topo-node-status"
+                          cx="19"
+                          cy="-19"
+                          r="4"
+                        />
+
+                        <AssetGlyph type={resolveAssetVisual(a)} />
+
+                        {labels && (
+                          <>
+                            <text className="topo-node-label" y="43">
+                              {a.name}
+                            </text>
+                            <text className="topo-node-ip" y="56">
+                              {a.ips?.[0] ?? ""}
+                            </text>
+                          </>
+                        )}
+
                         {labels && <text y={r + 13}>{a.name}</text>}
                         <title>{`${a.name}${a.ips?.length ? " · " + a.ips.join(", ") : ""}`}</title>
                       </g>
