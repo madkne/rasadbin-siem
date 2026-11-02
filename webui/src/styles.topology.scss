@@ -57,7 +57,17 @@
 }
 
 
-
+/* Lucide icon inside the SVG graph: beat the global `svg { height:auto; max-width:100% }` */
+.topo-svg svg.asset-glyph-svg {
+  width: 28px;
+  height: 28px;
+  max-width: none;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+}
+.asset-glyph { color: inherit; }
+.topo-node.dim .asset-glyph { opacity: .6; }
 
 .topo-node.dim {
   opacity: 0.18;

@@ -3,6 +3,7 @@ import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Asset, AssetDraft } from "../lib/types";
 import AssetEditor from "../components/AssetEditor";
+import Dialog from "../components/Dialog";
 
 const ACTIVE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -237,28 +238,26 @@ export default function Assets() {
         )}
 
         {editor && (
-          <section className="panel asset-editor-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">ASSET MANAGEMENT</p>
-                <h2>
-                  {editor.mode === "edit" ? "Edit asset" : "Add new asset"}
-                </h2>
-                {editor.mode === "edit" && (
-                  <p className="muted">{editor.asset.id}</p>
-                )}
-              </div>
-
+          <Dialog
+            open
+            title={editor.mode === "edit" ? "Edit asset" : "Add new asset"}
+            subtitle={
+              editor.mode === "edit"
+                ? "Update the classification and enrichment details for this asset."
+                : "Add a manual asset to the inventory. Provide an IP address or hostname."
+            }
+            onClose={() => setEditor(null)}
+            footer={
               <button
                 type="button"
                 className="ghost"
                 onClick={() => setEditor(null)}
                 disabled={!!savingId}
               >
-                Close
+                Cancel
               </button>
-            </div>
-
+            }
+          >
             <AssetEditor
               key={editor.mode === "edit" ? editor.asset.id : "new-asset"}
               asset={editor.mode === "edit" ? editor.asset : undefined}
@@ -266,7 +265,7 @@ export default function Assets() {
               onSubmit={saveAsset}
               onCancel={() => setEditor(null)}
             />
-          </section>
+          </Dialog>
         )}
 
         <section className="discover-results">
