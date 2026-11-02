@@ -501,6 +501,19 @@ func (c *client) dispatch(env envelope) {
 			"assets.changed",
 			[]asset.Asset{updated},
 		)
+	case "assets.archive_duplicates":
+		if c.requireAdmin(env.Type, sess) {
+			n := c.srv.assets.ArchiveDuplicates()
+			if err := c.srv.assets.Flush(context.Background()); err != nil {
+				c.sendError(env.Type, "failed to persist archived assets")
+				break
+			}
+			c.sendJSON("assets.archive_duplicates", map[string]any{"archived": n})
+			// refresh clients
+			items, total := c.srv.assets.List(asset.Filter{Limit: 2000})
+			c.srv.hub.broadcastAuthenticated("assets", map[string]any{"assets": items, "total": total})
+			c.srv.hub.broadcastAuthenticated("assets.changed", items)
+		}
 	case "topology.get":
 		c.sendJSON("topology", c.srv.assets.Topology(1000, 5000))
 	case "topology.subscribe":

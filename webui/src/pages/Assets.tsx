@@ -224,6 +224,13 @@ export default function Assets() {
           </button>
           <button
             type="button"
+            className="ghost"
+            onClick={() => ws.send("assets.archive_duplicates")}
+          >
+            Archive duplicates
+          </button>
+          <button
+            type="button"
             onClick={() => setEditor({ mode: "new" })}
             disabled={editor?.mode === "new"}
           >

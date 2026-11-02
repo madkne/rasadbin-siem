@@ -40,6 +40,7 @@ type AssetRecord struct {
 	EnrichmentEvidence string    `gorm:"column:enrichment_evidence;type:text"`
 	FirstSeen          time.Time `gorm:"not null"`
 	LastSeen           time.Time `gorm:"index;not null"`
+	Archived           bool      `gorm:"index;not null;default:false"`
 	EventCount         int64     `gorm:"not null;default:0"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
@@ -63,7 +64,7 @@ func (s *Store) SaveAssets(ctx context.Context, items []asset.Asset) error {
 			"criticality", "mac_addresses", "services", "protocols", "device_type", "device_role",
 			"manufacturer", "model", "operating_system", "os_version", "enrichment_status",
 			"enrichment_attempts", "enrichment_error", "last_enriched_at", "next_enrichment_at",
-			"enrichment_evidence", "first_seen", "last_seen", "event_count", "updated_at",
+			"enrichment_evidence", "first_seen", "last_seen", "archived", "event_count", "updated_at",
 		}),
 	}).CreateInBatches(rows, 100).Error
 	if err != nil {
@@ -97,6 +98,7 @@ func assetToRecord(a asset.Asset) AssetRecord {
 		EnrichmentStatus: a.EnrichmentStatus, EnrichmentAttempts: a.EnrichmentAttempts,
 		EnrichmentError: a.EnrichmentError, LastEnrichedAt: a.LastEnrichedAt, NextEnrichmentAt: a.NextEnrichmentAt,
 		EnrichmentEvidence: enc(nzEvidence(a.EnrichmentEvidence)), EventCount: a.EventCount,
+		Archived: a.Archived,
 	}
 }
 
@@ -108,6 +110,7 @@ func recordToAsset(r AssetRecord) asset.Asset {
 		OperatingSystem: r.OperatingSystem, OSVersion: r.OSVersion, EnrichmentStatus: r.EnrichmentStatus,
 		EnrichmentAttempts: r.EnrichmentAttempts, EnrichmentError: r.EnrichmentError,
 		LastEnrichedAt: r.LastEnrichedAt, NextEnrichmentAt: r.NextEnrichmentAt, EventCount: r.EventCount,
+		Archived: r.Archived,
 	}
 	_ = json.Unmarshal([]byte(r.IPs), &a.IPs)
 	_ = json.Unmarshal([]byte(r.Ports), &a.Ports)

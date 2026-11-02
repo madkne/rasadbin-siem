@@ -156,6 +156,74 @@ func (s *Service) ObserveEvent(source, message string, at time.Time) {
 	if hasFlow {
 		s.recordLink(fl, at)
 	}
+	s.maybeArchiveDuplicatesLocked()
+}
+
+func (s *Service) maybeArchiveDuplicatesLocked() {
+	// Opportunistic deduplication: cheap enough on small inventories; callers can
+	// also invoke ArchiveDuplicates() explicitly.
+	_ = s.archiveDuplicatesLocked()
+}
+
+func (s *Service) archiveDuplicatesLocked() int {
+	// group by shared key
+	groups := map[string][]string{}
+	for id, a := range s.assets {
+		if a.Archived {
+			continue
+		}
+		keys := map[string]struct{}{}
+		for _, ip := range a.IPs {
+			keys["ip:"+ip] = struct{}{}
+		}
+		if a.Hostname != "" {
+			keys["host:"+strings.ToLower(a.Hostname)] = struct{}{}
+		}
+		for k := range keys {
+			groups[k] = append(groups[k], id)
+		}
+	}
+	toArchive := map[string]bool{}
+	for _, ids := range groups {
+		if len(ids) < 2 {
+			continue
+		}
+		keep := ids[0]
+		for _, id := range ids[1:] {
+			cur := s.assets[id]
+			k := s.assets[keep]
+			if cur == nil || k == nil {
+				continue
+			}
+			if cur.LastSeen.After(k.LastSeen) {
+				keep = id
+				continue
+			}
+			if cur.LastSeen.Equal(k.LastSeen) {
+				if cur.Origin == OriginManual && k.Origin != OriginManual {
+					keep = id
+					continue
+				}
+				if cur.ID < k.ID {
+					keep = id
+				}
+			}
+		}
+		for _, id := range ids {
+			if id != keep {
+				toArchive[id] = true
+			}
+		}
+	}
+	n := 0
+	for id := range toArchive {
+		if a := s.assets[id]; a != nil && !a.Archived {
+			a.Archived = true
+			s.dirty[id] = struct{}{}
+			n++
+		}
+	}
+	return n
 }
 
 func (s *Service) apply(source string, o observation, at time.Time) {
@@ -294,6 +362,7 @@ func (s *Service) AddManual(in Asset) (Asset, error) {
 	}
 	a.Sources = addUnique(a.Sources, SourceManual, 8)
 	s.dirty[id] = struct{}{}
+	s.maybeArchiveDuplicatesLocked()
 	return clone(*a), nil
 }
 
@@ -507,57 +576,17 @@ func (s *Service) Flush(ctx context.Context) error {
 }
 
 // ArchiveDuplicates marks all but the most recently seen asset as archived when
-// multiple assets share an IP or hostname. Returns the number archived.
+// multiple assets share an IP or hostname. Assets are kept if they have
+// different identity fingerprints or if one is manual and the other is
+// discovered - manual assets are preferred when timestamps are equal.
+// Returns the number archived.
 func (s *Service) ArchiveDuplicates() int {
 	if s == nil {
 		return 0
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// group by shared key
-	groups := map[string][]string{}
-	for id, a := range s.assets {
-		if a.Archived {
-			continue
-		}
-		keys := []string{}
-		for _, ip := range a.IPs {
-			keys = append(keys, "ip:"+ip)
-		}
-		if a.Hostname != "" {
-			keys = append(keys, "host:"+a.Hostname)
-		}
-		for _, k := range keys {
-			groups[k] = append(groups[k], id)
-		}
-	}
-	toArchive := map[string]bool{}
-	for _, ids := range groups {
-		if len(ids) < 2 {
-			continue
-		}
-		// keep most recently seen
-		keep := ids[0]
-		for _, id := range ids[1:] {
-			if s.assets[id].LastSeen.After(s.assets[keep].LastSeen) {
-				keep = id
-			}
-		}
-		for _, id := range ids {
-			if id != keep {
-				toArchive[id] = true
-			}
-		}
-	}
-	n := 0
-	for id := range toArchive {
-		if a := s.assets[id]; a != nil && !a.Archived {
-			a.Archived = true
-			s.dirty[id] = struct{}{}
-			n++
-		}
-	}
-	return n
+	return s.archiveDuplicatesLocked()
 }
 
 func (s *Service) UpdateMetadata(id string, in Asset) (Asset, error) {
@@ -641,12 +670,14 @@ func (s *Service) UpdateMetadata(id string, in Asset) (Asset, error) {
 	a.OSVersion = strings.TrimSpace(in.OSVersion)
 
 	s.dirty[id] = struct{}{}
+	s.maybeArchiveDuplicatesLocked()
 
 	return clone(*a), nil
 }
 
 func clone(a Asset) Asset {
 	a.IPs = append([]string{}, a.IPs...)
+	a.Ports = append([]int{}, a.Ports...)
 	a.Sources = append([]string{}, a.Sources...)
 	a.Tags = append([]string{}, a.Tags...)
 	a.MACAddresses = append([]string{}, a.MACAddresses...)
