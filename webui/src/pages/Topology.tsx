@@ -309,7 +309,7 @@ export default function Topology() {
   };
   const onMove = (e: RPointerEvent<SVGSVGElement>) => {
     const s = sim.current;
-    if (s.drag) {
+    if (s.drag && s.drag.id) {
       const rect = e.currentTarget.getBoundingClientRect();
       const n = s.nodes.get(s.drag.id);
       if (n) {
@@ -328,11 +328,13 @@ export default function Topology() {
   const onUp = () => {
     const s = sim.current;
     if (s.drag) {
-      const n = s.nodes.get(s.drag.id);
+      const dragId = s.drag.id;
+      const moved = s.drag.moved;
+      const n = s.nodes.get(dragId);
       if (n) n.pinned = false;
-      if (!s.drag.moved)
-        setSelected((cur) => (cur === s.drag!.id ? null : s.drag!.id));
       s.drag = null;
+      if (!moved && dragId)
+        setSelected((cur) => (cur === dragId ? null : dragId));
     } else if (s.pan) {
       const moved =
         Math.abs(s.pan.vx - s.view.x) + Math.abs(s.pan.vy - s.view.y) > 3;
@@ -352,18 +354,28 @@ export default function Topology() {
   };
 
   /* ---------- selection panel ---------- */
-  const selectedAsset = selected ? byId.get(selected) : undefined;
+  const selectedAsset = selected ? (byId.get(selected) ?? null) : null;
+  useEffect(() => {
+    if (selected && !byId.has(selected)) {
+      setSelected(null);
+    }
+  }, [selected, byId]);
+
   const connections = useMemo(() => {
-    if (!selected) return [];
+    if (!selectedAsset) return [];
+
     return links
-      .filter((l) => l.source === selected || l.target === selected)
+      .filter(
+        (link) =>
+          link.source === selectedAsset.id || link.target === selectedAsset.id,
+      )
       .sort((a, b) => Date.parse(b.last_seen) - Date.parse(a.last_seen));
-  }, [links, selected]);
+  }, [links, selectedAsset]);
+
   const selectedLinkIds = useMemo(
-    () => new Set(connections.map((c) => c.id)),
+    () => new Set(connections.map((connection) => connection.id)),
     [connections],
   );
-
 
   return (
     <Shell>
@@ -423,7 +435,7 @@ export default function Topology() {
           </p>
         )}
 
-        <div className={`topology-stage ${selectedAsset ? "has-panel" : ""}`}>
+        <div className="topology-stage">
           <section className="topology-canvas" aria-label="Network graph">
             <svg
               ref={svgRef}
@@ -534,72 +546,82 @@ export default function Topology() {
                 </div>
               </div>
             )}
-          </section>
-
-          {selectedAsset && (
-            <aside className="topology-panel" aria-label="Selected asset">
-              <div>
-                <h2>{selectedAsset.name}</h2>
-                <p className="muted">
-                  {selectedAsset.origin === "manual"
-                    ? "Added manually"
-                    : "Discovered"}
-                </p>
+            {selectedAsset && (
+              <div className="topology-float-panel" aria-label="Selected asset">
+                <button
+                  type="button"
+                  className="topology-float-close"
+                  onClick={() => setSelected(null)}
+                  aria-label="Close asset details"
+                >
+                  ×
+                </button>
+                <div>
+                  <h2>{selectedAsset.name}</h2>
+                  <p className="muted">
+                    {selectedAsset.origin === "manual"
+                      ? "Added manually"
+                      : "Discovered"}
+                  </p>
+                </div>
+                <dl>
+                  {selectedAsset.hostname && (
+                    <>
+                      <dt>Hostname</dt>
+                      <dd>{selectedAsset.hostname}</dd>
+                    </>
+                  )}
+                  <dt>IP addresses</dt>
+                  <dd>{(selectedAsset.ips ?? []).join(", ") || "—"}</dd>
+                  <dt>Services</dt>
+                  <dd>{(selectedAsset.ports ?? []).join(", ") || "—"}</dd>
+                  <dt>Seen via</dt>
+                  <dd>{(selectedAsset.sources ?? []).join(", ")}</dd>
+                  {(selectedAsset.tags ?? []).length > 0 && (
+                    <>
+                      <dt>Tags</dt>
+                      <dd>{selectedAsset.tags.join(", ")}</dd>
+                    </>
+                  )}
+                  <dt>Last seen</dt>
+                  <dd>{new Date(selectedAsset.last_seen).toLocaleString()}</dd>
+                </dl>
+                <h3>Connections ({connections.length})</h3>
+                {connections.length === 0 && (
+                  <p className="muted">
+                    No connections observed for this asset.
+                  </p>
+                )}
+                {connections.map((l) => {
+                  const outgoing = l.source === selectedAsset.id;
+                  const peerId = outgoing ? l.target : l.source;
+                  const peer = byId.get(peerId);
+                  const live = now - Date.parse(l.last_seen) < LIVE_MS;
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      className={`topology-conn${live ? " live" : ""}`}
+                      onClick={() => setSelected(peerId)}
+                    >
+                      <strong>
+                        {outgoing ? "→" : "←"} {peer?.name ?? peerId}
+                      </strong>
+                      <small>
+                        {l.protocols.join("/")}
+                        {l.ports.length ? ` · port ${l.ports.join(", ")}` : ""}
+                      </small>
+                      <small>
+                        {l.packets.toLocaleString()} packets ·{" "}
+                        {fmtBytes(l.bytes)}
+                        {live ? " · live" : ""}
+                      </small>
+                    </button>
+                  );
+                })}
               </div>
-              <dl>
-                {selectedAsset.hostname && (
-                  <>
-                    <dt>Hostname</dt>
-                    <dd>{selectedAsset.hostname}</dd>
-                  </>
-                )}
-                <dt>IP addresses</dt>
-                <dd>{(selectedAsset.ips ?? []).join(", ") || "—"}</dd>
-                <dt>Services</dt>
-                <dd>{(selectedAsset.ports ?? []).join(", ") || "—"}</dd>
-                <dt>Seen via</dt>
-                <dd>{(selectedAsset.sources ?? []).join(", ")}</dd>
-                {(selectedAsset.tags ?? []).length > 0 && (
-                  <>
-                    <dt>Tags</dt>
-                    <dd>{selectedAsset.tags.join(", ")}</dd>
-                  </>
-                )}
-                <dt>Last seen</dt>
-                <dd>{new Date(selectedAsset.last_seen).toLocaleString()}</dd>
-              </dl>
-              <h3>Connections ({connections.length})</h3>
-              {connections.length === 0 && (
-                <p className="muted">No connections observed for this asset.</p>
-              )}
-              {connections.map((l) => {
-                const outgoing = l.source === selectedAsset.id;
-                const peerId = outgoing ? l.target : l.source;
-                const peer = byId.get(peerId);
-                const live = now - Date.parse(l.last_seen) < LIVE_MS;
-                return (
-                  <button
-                    key={l.id}
-                    type="button"
-                    className={`topology-conn${live ? " live" : ""}`}
-                    onClick={() => setSelected(peerId)}
-                  >
-                    <strong>
-                      {outgoing ? "→" : "←"} {peer?.name ?? peerId}
-                    </strong>
-                    <small>
-                      {l.protocols.join("/")}
-                      {l.ports.length ? ` · port ${l.ports.join(", ")}` : ""}
-                    </small>
-                    <small>
-                      {l.packets.toLocaleString()} packets · {fmtBytes(l.bytes)}
-                      {live ? " · live" : ""}
-                    </small>
-                  </button>
-                );
-              })}
-            </aside>
-          )}
+            )}
+          </section>
         </div>
       </main>
     </Shell>
