@@ -2,6 +2,9 @@ import { Fragment, useEffect, useState } from "react";
 import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Alert, AlertHistoryEntry, AlertNote } from "../lib/types";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 const STATUSES: Alert["status"][] = [
   "new", "acknowledged", "investigating", "resolved", "false_positive",
@@ -100,7 +103,7 @@ export default function Alerts() {
           <span className="integration-count">{filteredAlerts.length} shown · {total || alerts.length} total</span>
         </div>
         <section className="discover-querybar">
-          <input className="discover-search-input" placeholder="Search alerts…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="discover-search-input" placeholder="Search alerts…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} aria-label="Severity filter">
             <option value="">All severities</option>
             {["critical", "high", "medium", "low", "info"].map((s) => <option key={s} value={s}>{s}</option>)}
@@ -109,7 +112,7 @@ export default function Alerts() {
             <option value="">All statuses</option>
             {statuses.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
           </select>
-          <button type="button" className="ghost" onClick={() => ws.send("alerts.get", { search, severity: severityFilter, status: statusFilter, limit: 500, offset: 0 })}>Refresh</button>
+          <Button type="button" className="ghost" onClick={() => ws.send("alerts.get", { search, severity: severityFilter, status: statusFilter, limit: 500, offset: 0 })}>Refresh</Button>
         </section>
         {error && <p className="msg error" role="alert">{error}</p>}
         <section className="discover-results">
@@ -137,11 +140,11 @@ export default function Alerts() {
                         {a.evidence?.length ? <pre>{a.evidence.join("\n")}</pre> : null}
                         <p className="muted">Rule: {a.rule_id} · First seen: {a.first_seen ? new Date(a.first_seen).toLocaleString() : "—"}</p>
                         <div className="discover-querybar">
-                          <label>Status <select value={a.status} onChange={(e) => updateAlert(a, e.target.value as Alert["status"])}>
+                          <Label>Status <select value={a.status} onChange={(e) => updateAlert(a, e.target.value as Alert["status"])}>
                             {STATUSES.map((status) => <option key={status} value={status}>{status.replace("_", " ")}</option>)}
-                          </select></label>
-                          <label>Assignee <input value={assigneeDraft} onChange={(e) => setAssigneeDraft(e.target.value)} placeholder="Analyst username" /></label>
-                          <button type="button" onClick={() => updateAlert(a, a.status, assigneeDraft)}>Save assignment</button>
+                          </select></Label>
+                          <Label>Assignee <Input value={assigneeDraft} onChange={(e) => setAssigneeDraft(e.target.value)} placeholder="Analyst username" /></Label>
+                          <Button type="button" onClick={() => updateAlert(a, a.status, assigneeDraft)}>Save assignment</Button>
                         </div>
                         <section className="card">
                           <h3>Activity history</h3>
@@ -158,7 +161,7 @@ export default function Alerts() {
                           </article>)}
                           {(notes[a.id] ?? []).length === 0 && <p className="muted">No notes yet.</p>}
                           <textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} maxLength={10000} placeholder="Add investigation notes…" />
-                          <button type="button" disabled={!noteDraft.trim()} onClick={() => ws.send("alert.note.add", { id: a.id, body: noteDraft })}>Add note</button>
+                          <Button type="button" disabled={!noteDraft.trim()} onClick={() => ws.send("alert.note.add", { id: a.id, body: noteDraft })}>Add note</Button>
                         </section>
                       </div>
                     </td></tr>}

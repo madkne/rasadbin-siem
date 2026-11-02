@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ws } from "../lib/ws";
 import type { Alert, Identity } from "../lib/types";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: "D", admin: false },
@@ -68,7 +71,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-shell">
       {navOpen && (
-        <button
+        <Button
           type="button"
           className="side-nav-overlay"
           aria-label="Close navigation"
@@ -105,9 +108,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 </span>
                 <span>{n.label}</span>
                 {n.to === "/alerts" && alertCount > 0 && (
-                  <span className="side-nav-badge">
+                  <Badge variant="destructive" className="side-nav-badge">
                     {alertCount > 99 ? "99+" : alertCount}
-                  </span>
+                  </Badge>
                 )}
               </Link>
             );
@@ -123,20 +126,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       <div className="app-main">
         <header className="topbar">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             className="side-nav-toggle"
             aria-label="Toggle navigation"
             aria-expanded={navOpen}
             onClick={() => setNavOpen((v) => !v)}
           >
             ☰
-          </button>
+          </Button>
           <form className="topbar-search" onSubmit={submitSearch}>
             <span className="topbar-search-icon" aria-hidden>
               ⌕
             </span>
-            <input
+            <Input
               type="search"
               placeholder="Search events, sources, rules…"
               value={search}
@@ -148,13 +153,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <span className="topbar-user">
             {me ? `${me.username} · ${me.role}` : ""}
           </span>
-          <button
-            className="ghost topbar-signout"
+          <Button
+            variant="ghost"
+            className="topbar-signout"
             type="button"
             onClick={() => ws.send("logout")}
           >
             Sign out
-          </button>
+          </Button>
         </header>
         <div className="app-content">{children}</div>
       </div>

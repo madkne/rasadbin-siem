@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface TagsInputProps {
   value: string[];
@@ -66,18 +68,18 @@ export default function TagsInput({
       {value.map((term) => (
         <span key={term} className="tag">
           {term}
-          <button
+          <Button
             type="button"
             className="tag-remove"
             aria-label={`Remove ${term}`}
             onClick={(e) => { e.stopPropagation(); remove(term); }}
           >
             ×
-          </button>
+          </Button>
         </span>
       ))}
       <div className="tags-entry">
-        <input
+        <Input
           id={id}
           ref={inputRef}
           value={draft}
@@ -93,14 +95,14 @@ export default function TagsInput({
           <ul className="tags-suggest" role="listbox">
             {filtered.map((s) => (
               <li key={s}>
-                <button
+                <Button
                   type="button"
                   role="option"
                   onMouseDown={(e) => e.preventDefault()} // keep focus
                   onClick={() => add(s)}
                 >
                   {s}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

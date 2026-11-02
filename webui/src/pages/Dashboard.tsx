@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Shell from "../components/Shell";
 import { fmtDuration, ws } from "../lib/ws";
 import type { EventEntry, Stats } from "../lib/types";
+import { Label } from "../components/ui/label";
 
 const MAX_POINTS = 60;
 const MAX_EVENTS = 50;
@@ -173,7 +174,7 @@ export default function Dashboard() {
                 Recent events <span className="count">{events.length}</span>
               </h2>
             </div>
-            <label className="filter-label">
+            <Label className="filter-label">
               Severity
               <select
                 value={severity}
@@ -186,7 +187,7 @@ export default function Dashboard() {
                 <option value="low">Low</option>
                 <option value="info">Info</option>
               </select>
-            </label>
+            </Label>
           </div>
           <div className="table-wrap">
             <table>

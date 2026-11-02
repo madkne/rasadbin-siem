@@ -1,4 +1,14 @@
-import { useEffect, useRef, ReactNode } from "react";
+import { useEffect } from "react";
+import {
+  Dialog as ShadcnDialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "./ui/dialog";
+import type { ReactNode } from "react";
 
 interface Props {
   open: boolean;
@@ -19,8 +29,6 @@ export default function Dialog({
   footer,
   width = "min(640px, 96vw)",
 }: Props) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -30,46 +38,21 @@ export default function Dialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
-
   return (
-    <div
-      className="dialog-overlay"
-      ref={overlayRef}
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-    >
-      <div
-        className="dialog"
-        style={{ width }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? "dialog-title" : undefined}
-      >
+    <ShadcnDialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent style={{ width, maxWidth: "96vw" }}>
         {(title || subtitle) && (
-          <div className="dialog-head">
-            <div>
-              {title && (
-                <h2 id="dialog-title" className="dialog-title">
-                  {title}
-                </h2>
-              )}
-              {subtitle && <p className="muted dialog-subtitle">{subtitle}</p>}
-            </div>
-            <button
-              type="button"
-              className="ghost dialog-close"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+          <DialogHeader>
+            {title && <DialogTitle>{title}</DialogTitle>}
+            {subtitle && <DialogDescription>{subtitle}</DialogDescription>}
+          </DialogHeader>
         )}
         <div className="dialog-body">{children}</div>
-        {footer && <div className="dialog-foot">{footer}</div>}
-      </div>
-    </div>
+        {footer && <DialogFooter>{footer}</DialogFooter>}
+        <DialogClose className="ghost dialog-close" aria-label="Close">
+          ✕
+        </DialogClose>
+      </DialogContent>
+    </ShadcnDialog>
   );
 }

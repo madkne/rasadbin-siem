@@ -10,6 +10,9 @@ import Shell from "../components/Shell";
 import { useSearchParams } from "react-router-dom";
 import { ws } from "../lib/ws";
 import type { SearchQuery, SearchResult } from "../lib/types";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
 const REFRESH_OPTIONS = [
@@ -184,7 +187,7 @@ export default function Discover() {
               Search, filter and inspect collected events.
             </p>
           </div>
-          <label className="refresh-label">
+          <Label className="refresh-label">
             Refresh
             <select
               value={refreshMs}
@@ -196,12 +199,12 @@ export default function Discover() {
                 </option>
               ))}
             </select>
-          </label>
+          </Label>
         </div>
 
         {/* Query bar */}
         <section className="discover-querybar">
-          <input
+          <Input
             className="discover-search-input"
             placeholder="Search message or source…"
             value={query}
@@ -222,22 +225,22 @@ export default function Discover() {
               </option>
             ))}
           </select>
-          <input
+          <Input
             type="datetime-local"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
             aria-label="From"
           />
-          <input
+          <Input
             type="datetime-local"
             value={to}
             onChange={(e) => setTo(e.target.value)}
             aria-label="To"
           />
-          <button type="button" onClick={runSearch} disabled={loading}>
+          <Button type="button" onClick={runSearch} disabled={loading}>
             {loading ? "Searching…" : "Search"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             className="ghost"
             onClick={() => {
@@ -249,15 +252,15 @@ export default function Discover() {
             }}
           >
             Reset
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             className="ghost"
             onClick={exportJson}
             disabled={loading}
           >
             Export JSON
-          </button>
+          </Button>
         </section>
 
         {/* Source filter chips */}
@@ -265,7 +268,7 @@ export default function Discover() {
           <section className="discover-sources" aria-label="Source filters">
             <span className="filter-label-text">Sources:</span>
             {sources.map((s) => (
-              <button
+              <Button
                 key={s}
                 type="button"
                 className={`chip ${selectedSources.includes(s) ? "chip-on" : ""}`}
@@ -273,16 +276,16 @@ export default function Discover() {
                 aria-pressed={selectedSources.includes(s)}
               >
                 {s || "system"}
-              </button>
+              </Button>
             ))}
-            <label className="sort-toggle">
-              <input
+            <Label className="sort-toggle">
+              <Input
                 type="checkbox"
                 checked={sortDesc}
                 onChange={(e) => setSortDesc(e.target.checked)}
               />
               Newest first
-            </label>
+            </Label>
           </section>
         )}
 
@@ -300,7 +303,7 @@ export default function Discover() {
               <span className="muted">{sourceCounts.length} values</span>
             </div>
             {sourceCounts.map(([s, c]) => (
-              <button
+              <Button
                 key={s}
                 type="button"
                 className={`discover-field-value ${selectedSources.includes(s) ? "on" : ""}`}
@@ -308,7 +311,7 @@ export default function Discover() {
               >
                 <span>{s}</span>
                 <span>{c}</span>
-              </button>
+              </Button>
             ))}
             <div className="discover-field">
               <span>severity</span>

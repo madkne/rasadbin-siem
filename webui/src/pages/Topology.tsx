@@ -4,6 +4,9 @@ import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Asset, TopologyLink } from "../lib/types";
 import { AssetGlyph, resolveAssetVisual } from "../components/AssetIcons";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 const LIVE_MS = 30_000; // a link is "live" if traffic was seen this recently
 const ACTIVE_MS = 15 * 60_000; // an asset is "active" within this window
@@ -397,36 +400,36 @@ export default function Topology() {
         </div>
 
         <section className="discover-querybar">
-          <input
+          <Input
             className="discover-search-input"
             placeholder="Highlight assets by name, IP or tag…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <label className="sort-toggle" style={{ marginLeft: 0 }}>
-            <input
+          <Label className="sort-toggle" style={{ marginLeft: 0 }}>
+            <Input
               type="checkbox"
               checked={liveOnly}
               onChange={(e) => setLiveOnly(e.target.checked)}
             />
             Live links only
-          </label>
-          <label className="sort-toggle" style={{ marginLeft: 0 }}>
-            <input
+          </Label>
+          <Label className="sort-toggle" style={{ marginLeft: 0 }}>
+            <Input
               type="checkbox"
               checked={hideIsolated}
               onChange={(e) => setHideIsolated(e.target.checked)}
             />
             Hide assets without connections
-          </label>
-          <label className="sort-toggle" style={{ marginLeft: 0 }}>
-            <input
+          </Label>
+          <Label className="sort-toggle" style={{ marginLeft: 0 }}>
+            <Input
               type="checkbox"
               checked={labels}
               onChange={(e) => setLabels(e.target.checked)}
             />
             Labels
-          </label>
+          </Label>
         </section>
 
         {error && (
@@ -522,12 +525,12 @@ export default function Topology() {
             </svg>
 
             <div className="topology-toolbar">
-              <button type="button" className="ghost" onClick={resetView}>
+              <Button type="button" className="ghost" onClick={resetView}>
                 Reset view
-              </button>
-              <button type="button" className="ghost" onClick={() => wake(1)}>
+              </Button>
+              <Button type="button" className="ghost" onClick={() => wake(1)}>
                 Re-layout
-              </button>
+              </Button>
             </div>
             <div className="topology-legend" aria-hidden>
               <span className="lg-active">Active asset</span>
@@ -548,14 +551,14 @@ export default function Topology() {
             )}
             {selectedAsset && (
               <div className="topology-float-panel" aria-label="Selected asset">
-                <button
+                <Button
                   type="button"
                   className="topology-float-close"
                   onClick={() => setSelected(null)}
                   aria-label="Close asset details"
                 >
                   ×
-                </button>
+                </Button>
                 <div>
                   <h2>{selectedAsset.name}</h2>
                   <p className="muted">
@@ -598,7 +601,7 @@ export default function Topology() {
                   const peer = byId.get(peerId);
                   const live = now - Date.parse(l.last_seen) < LIVE_MS;
                   return (
-                    <button
+                    <Button
                       key={l.id}
                       type="button"
                       className={`topology-conn${live ? " live" : ""}`}
@@ -616,7 +619,7 @@ export default function Topology() {
                         {fmtBytes(l.bytes)}
                         {live ? " · live" : ""}
                       </small>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

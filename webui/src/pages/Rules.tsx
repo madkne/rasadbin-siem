@@ -3,6 +3,9 @@ import type { FormEvent } from "react";
 import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { DetectionRule, ErrorPayload } from "../lib/types";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 
 const blankRule = (): DetectionRule => ({
@@ -178,7 +181,7 @@ export default function Rules() {
               telemetry into deduplicated alerts.
             </p>
           </div>
-          <button onClick={startNew}>＋ New rule</button>
+          <Button onClick={startNew}>＋ New rule</Button>
         </div>
         <div className="rules-summary">
           <div>
@@ -218,19 +221,19 @@ export default function Rules() {
                     : "Create rule"}
                 </h2>
               </div>
-              <button
+              <Button
                 className="ghost"
                 type="button"
                 onClick={() => setEditing(false)}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
             <form onSubmit={save}>
               <div className="rules-form-grid">
-                <label>
+                <Label>
                   Rule ID
-                  <input
+                  <Input
                     required
                     pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,99}"
                     maxLength={100}
@@ -243,18 +246,18 @@ export default function Rules() {
                     Stable identifier; letters, numbers, dot, underscore and
                     hyphen.
                   </small>
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Display title
-                  <input
+                  <Input
                     required
                     maxLength={160}
                     value={draft.title}
                     placeholder="SSH brute-force attempt"
                     onChange={(e) => update("title", e.target.value)}
                   />
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Rule kind
                   <select
                     value={draft.kind}
@@ -269,8 +272,8 @@ export default function Rules() {
                   <small>
                     Detection behavior supported by the current engine.
                   </small>
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Severity
                   <select
                     value={draft.severity}
@@ -285,10 +288,10 @@ export default function Rules() {
                       <option key={s}>{s}</option>
                     ))}
                   </select>
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Threshold
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     max={1000000}
@@ -298,10 +301,10 @@ export default function Rules() {
                       update("threshold", Number(e.target.value))
                     }
                   />
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Window (seconds)
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     max={86400}
@@ -311,10 +314,10 @@ export default function Rules() {
                       update("window_seconds", Number(e.target.value))
                     }
                   />
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Deduplication (seconds)
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     max={604800}
@@ -324,10 +327,10 @@ export default function Rules() {
                       update("dedup_seconds", Number(e.target.value))
                     }
                   />
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Sources{" "}
-                  <input
+                  <Input
                     value={draft.sources.join(", ")}
                     placeholder="syslog-files, network-packets"
                     onChange={(e) =>
@@ -343,8 +346,8 @@ export default function Rules() {
                   <small>
                     Comma-separated source IDs; leave empty for any source.
                   </small>
-                </label>
-                <label className="rules-wide" htmlFor="match_any">
+                </Label>
+                <Label className="rules-wide" htmlFor="match_any">
                   Match terms
                   <select
                     id="match_any"
@@ -368,8 +371,8 @@ export default function Rules() {
                     Select one or more available terms. An event matching any
                     selected term can contribute to the threshold.
                   </small>
-                </label>
-                <label className="rules-wide">
+                </Label>
+                <Label className="rules-wide">
                   Description
                   <textarea
                     rows={3}
@@ -378,28 +381,28 @@ export default function Rules() {
                     placeholder="Explain what this rule detects and why it matters."
                     onChange={(e) => update("description", e.target.value)}
                   />
-                </label>
+                </Label>
               </div>
-              <label className="rules-enabled">
-                <input
+              <Label className="rules-enabled">
+                <Input
                   type="checkbox"
                   checked={draft.enabled}
                   onChange={(e) => update("enabled", e.target.checked)}
                 />{" "}
                 Rule is enabled
-              </label>
+              </Label>
               <div className="rules-form-actions">
-                <button
+                <Button
                   type="button"
                   className="ghost"
                   disabled={busy}
                   onClick={validate}
                 >
                   Validate rule
-                </button>
-                <button type="submit" disabled={busy}>
+                </Button>
+                <Button type="submit" disabled={busy}>
                   {busy ? "Working…" : "Save rule"}
-                </button>
+                </Button>
               </div>
             </form>
           </section>
@@ -413,7 +416,7 @@ export default function Rules() {
                 effect immediately.
               </p>
             </div>
-            <input
+            <Input
               className="rules-search"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -433,7 +436,7 @@ export default function Rules() {
                   : "Create your first rule to start generating alerts from incoming telemetry."}
               </p>
               {!rules.length && (
-                <button onClick={startNew}>Create your first rule</button>
+                <Button onClick={startNew}>Create your first rule</Button>
               )}
             </div>
           ) : (
@@ -480,27 +483,27 @@ export default function Rules() {
                       </td>
                       <td>
                         <div className="rule-actions">
-                          <button
+                          <Button
                             className="ghost"
                             disabled={busy}
                             onClick={() => startEdit(rule)}
                           >
                             Edit
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             className="ghost"
                             disabled={busy}
                             onClick={() => toggle(rule)}
                           >
                             {rule.enabled === false ? "Enable" : "Disable"}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             className="danger-ghost"
                             disabled={busy}
                             onClick={() => remove(rule)}
                           >
                             Delete
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

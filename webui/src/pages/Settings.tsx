@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import Shell from "../components/Shell";
 import { ws } from "../lib/ws";
 import type { Settings as SettingsT } from "../lib/types";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsT | null>(null);
@@ -108,8 +111,8 @@ export default function Settings() {
               >
                 <div className="settings-grid">
                   <div className="settings-field">
-                    <label htmlFor="instance_name">Instance name</label>
-                    <input
+                    <Label htmlFor="instance_name">Instance name</Label>
+                    <Input
                       id="instance_name"
                       name="instance_name"
                       maxLength={64}
@@ -123,7 +126,7 @@ export default function Settings() {
                   </div>
 
                   <div className="settings-field">
-                    <label htmlFor="log_level">Log level</label>
+                    <Label htmlFor="log_level">Log level</Label>
                     <select
                       id="log_level"
                       name="log_level"
@@ -140,8 +143,8 @@ export default function Settings() {
                   </div>
 
                   <div className="settings-field">
-                    <label htmlFor="session_minutes">Session timeout (minutes)</label>
-                    <input
+                    <Label htmlFor="session_minutes">Session timeout (minutes)</Label>
+                    <Input
                       id="session_minutes"
                       name="session_minutes"
                       type="number"
@@ -154,8 +157,8 @@ export default function Settings() {
                   </div>
 
                   <div className="settings-field">
-                    <label htmlFor="retention_days">Event retention (days)</label>
-                    <input
+                    <Label htmlFor="retention_days">Event retention (days)</Label>
+                    <Input
                       id="retention_days"
                       name="retention_days"
                       type="number"
@@ -168,8 +171,8 @@ export default function Settings() {
                   </div>
 
                   <div className="settings-field">
-                    <label htmlFor="refresh_seconds">Dashboard refresh (seconds)</label>
-                    <input
+                    <Label htmlFor="refresh_seconds">Dashboard refresh (seconds)</Label>
+                    <Input
                       id="refresh_seconds"
                       name="refresh_seconds"
                       type="number"
@@ -193,21 +196,21 @@ export default function Settings() {
                 </div>
                 <div className="settings-grid">
                   <div className="settings-field">
-                    <label htmlFor="active_enrichment_enabled">Allow active enrichment</label>
-                    <input id="active_enrichment_enabled" name="active_enrichment_enabled" type="checkbox" defaultChecked={settings.active_enrichment_enabled} />
+                    <Label htmlFor="active_enrichment_enabled">Allow active enrichment</Label>
+                    <Input id="active_enrichment_enabled" name="active_enrichment_enabled" type="checkbox" defaultChecked={settings.active_enrichment_enabled} />
                     <span className="settings-hint">Explicit administrative permission for future active providers. Default: disabled.</span>
                   </div>
                   <div className="settings-field">
-                    <label htmlFor="active_enrichment_cidrs">Allowed target CIDRs</label>
+                    <Label htmlFor="active_enrichment_cidrs">Allowed target CIDRs</Label>
                     <textarea id="active_enrichment_cidrs" name="active_enrichment_cidrs" rows={3} defaultValue={(settings.active_enrichment_cidrs || []).join("\n")} placeholder="192.168.10.0/24\n10.20.0.0/16" />
                     <span className="settings-hint">One CIDR per line. Enabling active enrichment without an allowlist is rejected.</span>
                   </div>
                 </div>
 
                 <div className="settings-actions">
-                  <button type="submit" disabled={!dirty || saving}>
+                  <Button type="submit" disabled={!dirty || saving}>
                     {saving ? "Saving…" : "Save settings"}
-                  </button>
+                  </Button>
                   {settingsMsg && (
                     <p
                       className={`msg ${settingsMsg.ok ? "ok" : "error"}`}
@@ -234,8 +237,8 @@ export default function Settings() {
               <form onSubmit={changePassword}>
                 <div className="settings-grid">
                   <div className="settings-field">
-                    <label htmlFor="current">Current password</label>
-                    <input
+                    <Label htmlFor="current">Current password</Label>
+                    <Input
                       id="current"
                       name="current"
                       type="password"
@@ -245,8 +248,8 @@ export default function Settings() {
                     />
                   </div>
                   <div className="settings-field">
-                    <label htmlFor="new">New password</label>
-                    <input
+                    <Label htmlFor="new">New password</Label>
+                    <Input
                       id="new"
                       name="new"
                       type="password"
@@ -258,8 +261,8 @@ export default function Settings() {
                     <span className="settings-hint">Minimum 10 characters.</span>
                   </div>
                   <div className="settings-field">
-                    <label htmlFor="repeat">Repeat new password</label>
-                    <input
+                    <Label htmlFor="repeat">Repeat new password</Label>
+                    <Input
                       id="repeat"
                       name="repeat"
                       type="password"
@@ -272,9 +275,9 @@ export default function Settings() {
                 </div>
 
                 <div className="settings-actions">
-                  <button type="submit" disabled={changing}>
+                  <Button type="submit" disabled={changing}>
                     {changing ? "Changing…" : "Change password"}
-                  </button>
+                  </Button>
                   {pwMsg && (
                     <p
                       className={`msg ${pwMsg.ok ? "ok" : "error"}`}

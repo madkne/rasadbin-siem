@@ -3,7 +3,7 @@ package main
 const (
 	APP_NAME         = "Rasadbin"
 	APP_COMMAND_NAME = "rasadbin"
-	APP_VERSION      = "0.5.12"
+	APP_VERSION      = "0.5.13"
 )
 
 var (

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ws } from "../lib/ws";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 export default function Login() {
   const nav = useNavigate();
@@ -40,10 +43,10 @@ export default function Login() {
       <section className="login-card">
         <div className="login-card-heading"><div className="eyebrow">ADMINISTRATOR ACCESS</div><h2>Welcome back</h2><p>Sign in to open your security workspace.</p></div>
         <form onSubmit={submit}>
-          <label>Username<input autoComplete="username" maxLength={128} required autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" /></label>
-          <label>Password<input ref={pwRef} type="password" autoComplete="current-password" maxLength={128} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></label>
+          <Label>Username<Input autoComplete="username" maxLength={128} required autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" /></Label>
+          <Label>Password<Input ref={pwRef} type="password" autoComplete="current-password" maxLength={128} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></Label>
           {msg && <p className="msg error" role="alert">{msg}</p>}
-          <button className="sign-in-button" type="submit" disabled={!connected || busy}>{busy ? <><span className="button-spinner" /> Signing in…</> : "Sign in securely"} <span aria-hidden="true">→</span></button>
+          <Button className="sign-in-button" type="submit" disabled={!connected || busy}>{busy ? <><span className="button-spinner" /> Signing in…</> : "Sign in securely"} <span aria-hidden="true">→</span></Button>
         </form>
         <div className={`connection-note ${connected ? "connected" : ""}`}><span className="live-dot" />{connected ? "Secure channel available" : "Connecting to local service…"}</div>
       </section>

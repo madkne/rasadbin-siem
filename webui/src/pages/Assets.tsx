@@ -4,6 +4,8 @@ import { ws } from "../lib/ws";
 import type { Asset, AssetDraft } from "../lib/types";
 import AssetEditor from "../components/AssetEditor";
 import Dialog from "../components/Dialog";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 const ACTIVE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -184,7 +186,7 @@ export default function Assets() {
         </section>
 
         <section className="discover-querybar">
-          <input
+          <Input
             className="discover-search-input"
             placeholder="Search by name, hostname, IP or tag…"
             value={search}
@@ -211,31 +213,31 @@ export default function Assets() {
             <option value="discovered">Discovered</option>
             <option value="manual">Manual</option>
           </select>
-          <button
+          <Button
             type="button"
             className={archived ? "ghost active" : "ghost"}
             onClick={() => setArchived((v) => !v)}
             aria-pressed={archived}
           >
             {archived ? "Show active" : "Show archived"}
-          </button>
-          <button type="button" className="ghost" onClick={load}>
+          </Button>
+          <Button type="button" className="ghost" onClick={load}>
             Refresh
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             className="ghost"
             onClick={() => ws.send("assets.archive_duplicates")}
           >
             Archive duplicates
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={() => setEditor({ mode: "new" })}
             disabled={editor?.mode === "new"}
           >
             ＋ Add asset
-          </button>
+          </Button>
         </section>
 
         {error && (
@@ -255,14 +257,14 @@ export default function Assets() {
             }
             onClose={() => setEditor(null)}
             footer={
-              <button
+              <Button
                 type="button"
                 className="ghost"
                 onClick={() => setEditor(null)}
                 disabled={!!savingId}
               >
                 Cancel
-              </button>
+              </Button>
             }
           >
             <AssetEditor
@@ -394,7 +396,7 @@ export default function Assets() {
                                 </p>
                               ) : null}
                             </div>
-                            <button
+                            <Button
                               type="button"
                               className="ghost"
                               onClick={(ev) => {
@@ -403,7 +405,7 @@ export default function Assets() {
                               }}
                             >
                               Edit asset
-                            </button>
+                            </Button>
                             <pre>{JSON.stringify(a, null, 2)}</pre>
                           </td>
                         </tr>

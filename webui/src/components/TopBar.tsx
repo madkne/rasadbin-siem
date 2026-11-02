@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ws } from "../lib/ws";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import type { Alert, Identity } from "../lib/types";
 
 export default function TopBar() {
@@ -68,14 +70,14 @@ export default function TopBar() {
         >
           Alerts
           {alertCount > 0 && (
-            <span
-              className="badge alert-badge"
+            <Badge
+              variant="destructive"
               data-testid="alerts-badge"
               id="alerts-badge"
               aria-label={`${alertCount} alerts`}
             >
               {alertCount > 99 ? "99+" : alertCount}
-            </span>
+            </Badge>
           )}
         </Link>
         {me?.role === "admin" && (
@@ -116,9 +118,9 @@ export default function TopBar() {
         }
       />
       <span className="muted">{me ? `${me.username} (${me.role})` : ""}</span>
-      <button className="ghost" type="button" onClick={() => ws.send("logout")}>
+      <Button variant="ghost" type="button" onClick={() => ws.send("logout")}>
         Sign out
-      </button>
+      </Button>
     </header>
   );
 }

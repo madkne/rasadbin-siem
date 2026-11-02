@@ -6,6 +6,8 @@ import type {
   InstalledProfile,
   ProfilePreview,
 } from "../lib/types";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 const MAX_ZIP_BYTES = 20 * 1024 * 1024;
 
@@ -193,7 +195,7 @@ export default function Profiles() {
               acceptFile(event.dataTransfer.files[0]);
             }}
           >
-            <input
+            <Input
               ref={inputRef}
               type="file"
               accept=".zip,application/zip"
@@ -205,17 +207,17 @@ export default function Profiles() {
               <>
                 <strong>{file.name}</strong>
                 <span className="muted">{formatBytes(file.size)} · ZIP archive</span>
-                <button type="button" className="text-button" onClick={() => { setFile(null); setPreview(null); if (inputRef.current) inputRef.current.value = ""; }}>
+                <Button type="button" className="text-button" onClick={() => { setFile(null); setPreview(null); if (inputRef.current) inputRef.current.value = ""; }}>
                   Remove selected file
-                </button>
+                </Button>
               </>
             ) : (
               <>
                 <strong>Drop your profile archive here</strong>
                 <span className="muted">or select a ZIP file from your computer</span>
-                <button type="button" className="secondary-button" onClick={() => inputRef.current?.click()}>
+                <Button type="button" className="secondary-button" onClick={() => inputRef.current?.click()}>
                   Browse files
-                </button>
+                </Button>
               </>
             )}
             <small>ZIP archive · Maximum {formatBytes(MAX_ZIP_BYTES)}</small>
@@ -226,10 +228,10 @@ export default function Profiles() {
               <span className="profile-note-mark">!</span>
               <span>Archives are validated before installation. Scripts and executable files are not run.</span>
             </div>
-            <button type="button" disabled={!file || !!busy} onClick={validate}>
+            <Button type="button" disabled={!file || !!busy} onClick={validate}>
               {busy === "validate" ? <><span className="button-spinner" /> Validating…</> : "Validate archive"}
               {busy !== "validate" && <span aria-hidden="true">→</span>}
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -305,13 +307,13 @@ export default function Profiles() {
                 Existing resources may conflict with this profile.
               </p>
               <div>
-                <button type="button" className="ghost" disabled={!!busy} onClick={() => { setPreview(null); setNotice(""); }}>
+                <Button type="button" className="ghost" disabled={!!busy} onClick={() => { setPreview(null); setNotice(""); }}>
                   Cancel
-                </button>
-                <button type="button" disabled={!!busy} onClick={install}>
+                </Button>
+                <Button type="button" disabled={!!busy} onClick={install}>
                   {busy === "install" ? <><span className="button-spinner" /> Installing…</> : "Install profile"}
                   {busy !== "install" && <span aria-hidden="true">→</span>}
-                </button>
+                </Button>
               </div>
             </div>
           </section>
@@ -320,7 +322,7 @@ export default function Profiles() {
         <section className="installed-profiles">
           <div className="installed-heading">
             <div><p className="eyebrow">PROFILE LIBRARY</p><h2>Installed profiles</h2></div>
-            <button type="button" className="ghost" onClick={refresh} disabled={!!busy}>Refresh</button>
+            <Button type="button" className="ghost" onClick={refresh} disabled={!!busy}>Refresh</Button>
           </div>
           {profiles.length === 0 ? (
             <div className="profiles-empty card">
@@ -353,16 +355,16 @@ export default function Profiles() {
                       <div className="profile-delete-confirm">
                         <p>Remove this profile and its owned rules?</p>
                         <div>
-                          <button type="button" className="ghost" disabled={!!busy} onClick={() => setConfirmDelete(null)}>Cancel</button>
-                          <button type="button" className="danger-button" disabled={!!busy} onClick={() => remove(meta.id)}>
+                          <Button type="button" className="ghost" disabled={!!busy} onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                          <Button type="button" className="danger-button" disabled={!!busy} onClick={() => remove(meta.id)}>
                             {busy === meta.id ? "Removing…" : "Confirm remove"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
-                      <button type="button" className="danger-ghost profile-remove" disabled={!!busy} onClick={() => setConfirmDelete(meta.id)}>
+                      <Button type="button" className="danger-ghost profile-remove" disabled={!!busy} onClick={() => setConfirmDelete(meta.id)}>
                         Remove profile
-                      </button>
+                      </Button>
                     )}
                   </article>
                 );

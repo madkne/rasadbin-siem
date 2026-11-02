@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import TagsInput from "./TagsInput";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import type { Asset, AssetDraft, Criticality } from "../lib/types";
 
 const CRITICALITIES: { value: Criticality; label: string }[] = [
@@ -102,9 +105,9 @@ export default function AssetEditor({
       <div className="asset-editor-grid">
         {!isEdit && (
           <>
-            <label>
+            <Label>
               IP addresses
-              <input
+              <Input
                 value={draft.ips}
                 onChange={(e) => setDraft({ ...draft, ips: e.target.value })}
                 placeholder="10.0.0.5, 10.0.0.6"
@@ -113,10 +116,10 @@ export default function AssetEditor({
               <small>
                 Comma or space separated. The first IP becomes the asset ID.
               </small>
-            </label>
-            <label>
+            </Label>
+            <Label>
               Hostname
-              <input
+              <Input
                 value={draft.hostname}
                 onChange={(e) =>
                   setDraft({ ...draft, hostname: e.target.value })
@@ -125,20 +128,20 @@ export default function AssetEditor({
                 autoComplete="off"
               />
               <small>Required if no IP address is provided.</small>
-            </label>
+            </Label>
           </>
         )}
 
-        <label>
+        <Label>
           Display name
-          <input
+          <Input
             value={draft.name}
             maxLength={128}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             placeholder={asset?.ips?.[0] ?? asset?.hostname ?? "PLC Line 1"}
           />
           <small>Overrides the auto-derived name shown in the inventory.</small>
-        </label>
+        </Label>
         <div className="asset-editor-section">
           <div className="asset-editor-section-heading">
             <h3>Asset classification</h3>
@@ -146,7 +149,7 @@ export default function AssetEditor({
           </div>
 
           <div className="asset-editor-grid">
-            <label>
+            <Label>
               Device Type
               <select
                 value={draft.device_type}
@@ -168,11 +171,11 @@ export default function AssetEditor({
                 <option value="network_device">Network Device</option>
                 <option value="other">Other</option>
               </select>
-            </label>
+            </Label>
 
-            <label>
+            <Label>
               Device Role
-              <input
+              <Input
                 value={draft.device_role}
                 maxLength={128}
                 onChange={(e) =>
@@ -180,11 +183,11 @@ export default function AssetEditor({
                 }
                 placeholder="Domain Controller, Engineering Station..."
               />
-            </label>
+            </Label>
 
-            <label>
+            <Label>
               Manufacturer
-              <input
+              <Input
                 value={draft.manufacturer}
                 maxLength={128}
                 onChange={(e) =>
@@ -192,17 +195,17 @@ export default function AssetEditor({
                 }
                 placeholder="Siemens, Schneider Electric, Dell..."
               />
-            </label>
+            </Label>
 
-            <label>
+            <Label>
               Model
-              <input
+              <Input
                 value={draft.model}
                 maxLength={128}
                 onChange={(e) => setDraft({ ...draft, model: e.target.value })}
                 placeholder="S7-1500, PowerEdge R750..."
               />
-            </label>
+            </Label>
           </div>
         </div>
 
@@ -213,9 +216,9 @@ export default function AssetEditor({
           </div>
 
           <div className="asset-editor-grid">
-            <label>
+            <Label>
               Operating System
-              <input
+              <Input
                 value={draft.operating_system}
                 maxLength={128}
                 onChange={(e) =>
@@ -223,11 +226,11 @@ export default function AssetEditor({
                 }
                 placeholder="Windows Server, Ubuntu, VxWorks..."
               />
-            </label>
+            </Label>
 
-            <label>
+            <Label>
               OS Version
-              <input
+              <Input
                 value={draft.os_version}
                 maxLength={128}
                 onChange={(e) =>
@@ -235,10 +238,10 @@ export default function AssetEditor({
                 }
                 placeholder="2022, 22.04, 7.5..."
               />
-            </label>
+            </Label>
           </div>
         </div>
-        <label>
+        <Label>
           Criticality
           <select
             value={draft.criticality}
@@ -252,10 +255,10 @@ export default function AssetEditor({
               </option>
             ))}
           </select>
-        </label>
+        </Label>
       </div>
 
-      <label className="asset-editor-tags">
+      <Label className="asset-editor-tags">
         Tags
         <TagsInput
           value={draft.tags}
@@ -268,7 +271,7 @@ export default function AssetEditor({
           Up to 16 tags, 64 characters each. Free-form labels used for
           filtering.
         </small>
-      </label>
+      </Label>
 
       {error && (
         <p className="msg error" role="alert">
@@ -277,17 +280,17 @@ export default function AssetEditor({
       )}
 
       <div className="asset-editor-actions">
-        <button
+        <Button
           type="button"
           className="ghost"
           onClick={onCancel}
           disabled={busy}
         >
           Cancel
-        </button>
-        <button type="submit" disabled={busy}>
+        </Button>
+        <Button type="submit" disabled={busy}>
           {busy ? "Saving…" : isEdit ? "Save changes" : "Add asset"}
-        </button>
+        </Button>
       </div>
     </form>
   );
