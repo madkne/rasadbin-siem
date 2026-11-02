@@ -5,3 +5,5 @@ build/
 data/
 *.patch
 *.json
+TODO.md
+tmp*

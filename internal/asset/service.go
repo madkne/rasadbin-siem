@@ -24,6 +24,9 @@ type Options struct {
 	MaxAssets     int           // inventory cap, default 10000
 	MaxPorts      int           // per-asset open-port cap, default 64
 	FlushInterval time.Duration // persistence/notification batching, default 5s
+	MaxLinks      int           // live topology links kept in memory, default 5000
+	LinkTTL       time.Duration // idle links expire after this, default 1h
+	LinkInterval  time.Duration // topology push batching, default 2s
 }
 
 // Service is the in-memory inventory with batched persistence. Observing an
@@ -38,6 +41,14 @@ type Service struct {
 	dirty   map[string]struct{}
 	store   Store
 	dropped uint64
+
+	// Live topology (memory only, see topology.go).
+	links        map[string]*Link
+	dirtyLinks   map[string]struct{}
+	removedLinks map[string]struct{}
+	onLinks      func(changed []Link, removed []string)
+	lastPrune    time.Time
+	droppedLinks uint64
 }
 
 // NewService creates a Service. onChange (optional) receives each flushed batch
@@ -52,9 +63,19 @@ func NewService(opts Options, onChange func([]Asset)) *Service {
 	if opts.FlushInterval <= 0 {
 		opts.FlushInterval = 5 * time.Second
 	}
+	if opts.MaxLinks <= 0 {
+		opts.MaxLinks = 5000
+	}
+	if opts.LinkTTL <= 0 {
+		opts.LinkTTL = time.Hour
+	}
+	if opts.LinkInterval <= 0 {
+		opts.LinkInterval = 2 * time.Second
+	}
 	return &Service{
 		opts: opts, onChange: onChange,
 		assets: map[string]*Asset{}, dirty: map[string]struct{}{},
+		links: map[string]*Link{}, dirtyLinks: map[string]struct{}{}, removedLinks: map[string]struct{}{},
 	}
 }
 
@@ -89,16 +110,20 @@ func (s *Service) Run(ctx context.Context) {
 	if s == nil {
 		return
 	}
-	t := time.NewTicker(s.opts.FlushInterval)
-	defer t.Stop()
+	assets := time.NewTicker(s.opts.FlushInterval)
+	links := time.NewTicker(s.opts.LinkInterval)
+	defer assets.Stop()
+	defer links.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
+		case <-assets.C:
 			if err := s.Flush(ctx); err != nil && ctx.Err() == nil {
 				slog.Error("asset flush failed", "error", err)
 			}
+		case <-links.C:
+			s.FlushLinks()
 		}
 	}
 }
@@ -110,7 +135,12 @@ func (s *Service) ObserveEvent(source, message string, at time.Time) {
 		return
 	}
 	obs := extract(source, message, s.opts.IncludePublic)
-	if len(obs) == 0 {
+	var fl flow
+	hasFlow := false
+	if source == SourceNetwork {
+		fl, hasFlow = extractFlow(message, s.opts.IncludePublic)
+	}
+	if len(obs) == 0 && !hasFlow {
 		return
 	}
 	if at.IsZero() {
@@ -121,6 +151,9 @@ func (s *Service) ObserveEvent(source, message string, at time.Time) {
 	defer s.mu.Unlock()
 	for _, o := range obs {
 		s.apply(source, o, at)
+	}
+	if hasFlow {
+		s.recordLink(fl, at)
 	}
 }
 

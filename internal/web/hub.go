@@ -183,6 +183,25 @@ func (h *Hub) broadcastAuthenticated(typ string, data any) {
 	}
 }
 
+// broadcastTopology sends to authenticated clients that opened the topology
+// page (topology.subscribe), so idle sessions do not receive flow updates.
+func (h *Hub) broadcastTopology(typ string, data any) {
+	b := encode(typ, data)
+	h.mu.RLock()
+	clients := make([]*client, 0, len(h.clients))
+	for c := range h.clients {
+		if c.topologySub.Load() {
+			if _, sess := c.identity(); sess != nil {
+				clients = append(clients, c)
+			}
+		}
+	}
+	h.mu.RUnlock()
+	for _, c := range clients {
+		c.enqueue(b)
+	}
+}
+
 // PublishAlert notifies connected clients about a newly raised alert.
 func (h *Hub) PublishAlert(a detection.Alert) {
 	b := encode("alert", a)

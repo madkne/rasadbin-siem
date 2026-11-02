@@ -139,6 +139,10 @@ func New(cfg Config) (*Server, error) {
 	srv.assets = asset.NewService(asset.Options{}, func(batch []asset.Asset) {
 		srv.hub.broadcastAuthenticated("assets.changed", batch)
 	})
+	srv.assets.SetLinkHandler(func(changed []asset.Link, removed []string) {
+		srv.hub.broadcastTopology("topology.changed",
+			map[string]any{"links": changed, "removed": removed})
+	})
 
 	profiles, err := newProfileManager(cfg.DataDir, engine, integrations, srv.collectorManager)
 	if err != nil {
@@ -258,6 +262,7 @@ func (s *Server) Handler() http.Handler {
 
 	// Static assets built by Vite (JS, CSS, etc.).
 	mux.Handle("GET /assets/", http.FileServerFS(s.static))
+	mux.Handle("GET /topology/", http.FileServerFS(s.static))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(s.static)))
 
 	mux.HandleFunc("GET /ws", s.serveWS)

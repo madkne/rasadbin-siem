@@ -8,6 +8,7 @@ const NAV = [
   { to: "/discover", label: "Discover", icon: "S", admin: false },
   { to: "/alerts", label: "Alerts", icon: "A", admin: false },
   { to: "/assets", label: "Assets", icon: "H", admin: false },
+  { to: "/topology", label: "Topology", icon: "N", admin: false },
   { to: "/rules", label: "Rules", icon: "R", admin: true },
   { to: "/integrations", label: "Integrations", icon: "I", admin: true },
   { to: "/profiles", label: "Profiles", icon: "P", admin: true },

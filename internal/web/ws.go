@@ -38,9 +38,10 @@ type client struct {
 	cancel     context.CancelFunc
 	subscribed atomic.Bool
 
-	mu    sync.RWMutex
-	token string
-	sess  *Session
+	mu          sync.RWMutex
+	token       string
+	sess        *Session
+	topologySub atomic.Bool
 }
 
 func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
@@ -464,6 +465,12 @@ func (c *client) dispatch(env envelope) {
 		}
 		items, total := c.srv.assets.List(q)
 		c.sendJSON("assets", map[string]any{"assets": items, "total": total})
+	case "topology.get":
+		c.sendJSON("topology", c.srv.assets.Topology(1000, 5000))
+	case "topology.subscribe":
+		c.topologySub.Store(true)
+	case "topology.unsubscribe":
+		c.topologySub.Store(false)
 	default:
 		c.sendError(env.Type, "unknown message type")
 	}

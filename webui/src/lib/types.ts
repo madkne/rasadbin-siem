@@ -141,6 +141,8 @@ export interface WsMessageMap {
   "profile.deleted": ProfileDeletedPayload;
   assets: { assets: Asset[]; total: number };
   "assets.changed": Asset[];
+  topology: { assets: Asset[]; links: TopologyLink[] };
+  "topology.changed": { links: TopologyLink[]; removed: string[] };
 }
 export interface Alert {
   id: string;
@@ -255,4 +257,15 @@ export interface Asset {
   first_seen: string;
   last_seen: string;
   event_count: number;
+}
+export interface TopologyLink {
+  id: string;
+  source: string;
+  target: string;
+  protocols: string[];
+  ports: number[];
+  packets: number;
+  bytes: number;
+  first_seen: string;
+  last_seen: string;
 }
