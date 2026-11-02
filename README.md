@@ -4,7 +4,7 @@
 
 The architecture is a modular monolith: collectors, detection, storage, and the web control plane are cleanly separated so each can evolve independently.
 
-> **Project status:** Active development, pre-1.0. The web UI, authentication with persistent users/sessions, settings, integration control plane, security profiles, detection engine, discovery/search, alerts, and all four collectors are implemented. Storage supports SQLite, PostgreSQL, and MySQL via GORM. Treat it as suitable for controlled or lab deployments — not yet audited for security-critical production use.
+> **Project status:** Active development, pre-1.0. The web UI, authentication with persistent users/sessions, settings, integration control plane, security profiles, detection engine, discovery/search, alerts, asset inventory and topology, and all four collectors are implemented. Storage supports SQLite, PostgreSQL, and MySQL via GORM. Treat it as suitable for controlled or lab deployments — not yet audited for security-critical production use.
 
 ---
 
@@ -51,13 +51,14 @@ Import, validate, install, and remove reusable ZIP bundles of rules, integration
 - [x] Linux authentication and privilege-escalation event parsing (syslog heuristic severity).
 - [x] Service-specific log parsers for Nginx, SSH, Docker, and other applications.
 - [ ] Offline PCAP processing for testing and investigation.
-- [ ] Configurable collection sources and filters.
+- [ ] Configurable collection sources and filters (runtime toggle via integration control plane).
 
 ### Event Processing
 
 - [x] Common event schema for all collection sources (`web.Event`).
 - [x] Event normalization and validation.
 - [x] Bounded ingestion queues (hub recent buffer, store channel with drop counter).
+- [x] Passive asset discovery and network-flow tracking from collected events.
 - [ ] Host, process, user, and network context enrichment.
 - [ ] Duplicate event detection.
 - [ ] Persistent checkpoints for reliable log collection.
@@ -74,9 +75,9 @@ Import, validate, install, and remove reusable ZIP bundles of rules, integration
 - [x] Alert triage workflow: new, acknowledged, investigating, resolved, false positive.
 - [x] Analyst assignment, notes, and append-only activity history.
 - [x] Alert search/filtering and live WebSocket updates.
+- [x] Time-window-based event aggregation.
+- [x] Threshold-based detection rules.
 - [ ] Service failure monitoring.
-- [ ] Time-window-based event aggregation.
-- [ ] Threshold-based detection.
 - [ ] Incident and case management.
 - [ ] Future support for a compatible subset of Sigma rules.
 
@@ -90,6 +91,8 @@ Import, validate, install, and remove reusable ZIP bundles of rules, integration
 - [x] Security profile import/export (admin).
 - [x] Settings page (admin).
 - [x] WebSocket-only API (single `/ws` endpoint).
+- [x] Asset inventory workspace (discovered and manually added hosts).
+- [x] Network topology view with live asset-to-asset links.
 
 ### Operations
 
@@ -109,30 +112,36 @@ Rasadbin follows a modular monolithic architecture. Collection, processing, dete
 ```text
 +------------------------------------------------------+
 |                    Web Interface                     |
-|    Dashboard | Integrations | Settings | Events      |
+| Dashboard | Discover | Alerts | Assets | Topology      |
+| Integrations | Rules | Profiles | Settings | Events      |
 +----------------------------+-------------------------+
-                             |
+                              |
 +----------------------------v-------------------------+
 |                WebSocket Hub / Auth                  |
 |     Sessions | Integrations | Settings | Events      |
 +----------------------------+-------------------------+
-                             |
+                              |
 +----------------------------v-------------------------+
 |                   Event Processing                   |
 | Normalize | Enrich | Deduplicate | Correlate         |
 +----------------------------+-------------------------+
-                             |
+                              |
++----------------------------v-------------------------+
+|               Asset & Topology Service               |
+|  Inventory | Flows | Links | Batched persistence     |
++----------------------------+-------------------------+
+                              |
 +----------------------------v-------------------------+
 |                    Detection Engine                  |
 |         Rules | Thresholds | Time Windows            |
 +----------------------------+-------------------------+
-                             |
+                              |
 +----------------------------v-------------------------+
 |                     Storage Layer                    |
-|       Events | Alerts | Rules | Checkpoints           |
+|       Events | Alerts | Rules | Assets | Auth         |
 +------------------------------------------------------+
 
-                       Data Sources
+                        Data Sources
 
 +------------------+ +----------------+ +---------------+
 | Network Capture  | | System Logs    | | Service Logs  |
@@ -176,7 +185,7 @@ Replace `<REPOSITORY_URL>` with the actual repository URL.
 
 ### 2. Install Go Dependencies
 
-The module is declared as `rasadbin` in `go.mod`. The only external dependency is the WebSocket library:
+The module is declared as `rasadbin` in `go.mod`. Dependencies include the WebSocket library, GORM with SQLite/PostgreSQL/MySQL drivers, and YAML parsing:
 
 ```bash
 go mod tidy
@@ -235,7 +244,7 @@ The implementation returns an HTTP 200 response similar to:
 {
   "status": "ok",
   "service": "rasadbin",
-  "version": "0.4.1"
+  "version": "0.5.1"
 }
 ```
 
@@ -295,6 +304,11 @@ Loaded at startup from `.env`, the environment, and CLI flags. See `.env.example
 | `ADMIN_PASSWORD`    |                       | (generated)         | Initial admin password (min. 10 characters)   |
 | `CAPTURE_INTERFACE` | `--capture-interface` | (collector default) | Linux interface for packet capture            |
 | `MAX_GOROUTINES`    | `--max-goroutines`    | (NumCPU)            | Maximum OS threads/goroutines for the runtime |
+| `DB_DRIVER`         | `--db-driver`         | `sqlite`            | Database driver: sqlite, postgres, or mysql   |
+| `DB_DSN`            | `--db-dsn`            | `DATA_DIR/rasadbin.db` | Database DSN or file path                  |
+| `DB_LOG_LEVEL`      | `--db-log-level`      | `warn`              | GORM log level: silent, error, warn, info     |
+| `SYSLOG_PATHS`      | `--syslog-paths`      | `/var/log/auth.log,/var/log/syslog,/var/log/messages,/var/log/secure` | Comma-separated syslog files to tail |
+| `SERVICE_LOG_PATHS` | `--service-log-paths` | `/var/log/nginx/access.log,/var/log/nginx/error.log` | Comma-separated service log files to tail |
 | `ENV_FILE`          |                       | `.env`              | Path to the environment file                  |
 
 The `--listen` flag overrides `HTTP_HOST`/`HTTP_PORT` directly.
