@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"rasadbin/internal/asset"
 	"rasadbin/internal/detection"
 
 	"github.com/coder/websocket"
@@ -453,6 +454,16 @@ func (c *client) dispatch(env envelope) {
 	case "password.change":
 		c.handlePasswordChange(env.Data, sess)
 
+	case "assets.get":
+		var q asset.Filter
+		if len(env.Data) > 0 && string(env.Data) != "null" {
+			if err := decodeStrict(env.Data, &q); err != nil {
+				c.sendError(env.Type, "invalid asset query")
+				break
+			}
+		}
+		items, total := c.srv.assets.List(q)
+		c.sendJSON("assets", map[string]any{"assets": items, "total": total})
 	default:
 		c.sendError(env.Type, "unknown message type")
 	}

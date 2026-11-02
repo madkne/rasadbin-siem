@@ -165,6 +165,24 @@ func (h *Hub) subscribers() []*client {
 	return out
 }
 
+// broadcastAuthenticated sends to authenticated clients only. Unlike
+// Hub.Broadcast it never reaches sockets that have not signed in, which matters
+// for inventory data.
+func (h *Hub) broadcastAuthenticated(typ string, data any) {
+	b := encode(typ, data)
+	h.mu.RLock()
+	clients := make([]*client, 0, len(h.clients))
+	for c := range h.clients {
+		if _, sess := c.identity(); sess != nil {
+			clients = append(clients, c)
+		}
+	}
+	h.mu.RUnlock()
+	for _, c := range clients {
+		c.enqueue(b)
+	}
+}
+
 // PublishAlert notifies connected clients about a newly raised alert.
 func (h *Hub) PublishAlert(a detection.Alert) {
 	b := encode("alert", a)

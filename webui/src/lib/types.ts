@@ -78,7 +78,6 @@ export interface SearchResult {
   took_ms: number;
 }
 
-
 export interface Integration {
   id: string;
   name: string;
@@ -125,7 +124,7 @@ export interface WsMessageMap {
   "integration.status": { id: string; status: string };
   "discover.results": SearchResult;
   "discover.sources": string[];
-  "match_terms": string[];
+  match_terms: string[];
   settings: Settings;
   settings_saved: Settings;
   error: ErrorPayload;
@@ -140,6 +139,8 @@ export interface WsMessageMap {
   "profile.validated": ProfilePreview;
   "profile.installed": ProfileInstalledPayload;
   "profile.deleted": ProfileDeletedPayload;
+  assets: { assets: Asset[]; total: number };
+  "assets.changed": Asset[];
 }
 export interface Alert {
   id: string;
@@ -196,7 +197,6 @@ export interface DetectionRule {
   kind: string;
 }
 
-
 // Security profile archive and installation API.
 export interface SecurityProfileMetadata {
   id: string;
@@ -228,7 +228,11 @@ export interface InstalledProfile {
   installed_at: string;
   rule_ids: string[];
   integrations: ProfileIntegration[];
-  previous_integrations?: Array<{ id: string; enabled: boolean; alerting: boolean }>;
+  previous_integrations?: Array<{
+    id: string;
+    enabled: boolean;
+    alerting: boolean;
+  }>;
   config_files: string[];
 }
 export interface ProfileInstalledPayload {
@@ -237,4 +241,18 @@ export interface ProfileInstalledPayload {
 export interface ProfileDeletedPayload {
   id: string;
   profiles: InstalledProfile[];
+}
+export interface Asset {
+  id: string;
+  origin: "discovered" | "manual";
+  name: string;
+  hostname?: string;
+  ips: string[];
+  ports: number[];
+  sources: string[];
+  tags: string[];
+  criticality?: string;
+  first_seen: string;
+  last_seen: string;
+  event_count: number;
 }

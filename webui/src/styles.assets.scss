@@ -1,0 +1,55 @@
+/* Asset inventory */
+.asset-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.asset-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.asset-status.on {
+  color: var(--ok);
+}
+.asset-status.on::before {
+  background: var(--ok);
+}
+.asset-name {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.asset-name small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.asset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.asset-chip {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.12rem 0.4rem;
+  color: #b6c6d9;
+  font: 0.72rem ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.asset-chip.crit-critical,
+.asset-chip.crit-high {
+  color: var(--bad);
+  border-color: #ff7e8744;
+}
+.asset-chip.crit-medium {
+  color: var(--warning);
+  border-color: #f4c67444;
+}
+.asset-origin-manual {
+  color: var(--accent);
+}

@@ -7,6 +7,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: "D", admin: false },
   { to: "/discover", label: "Discover", icon: "S", admin: false },
   { to: "/alerts", label: "Alerts", icon: "A", admin: false },
+  { to: "/assets", label: "Assets", icon: "H", admin: false },
   { to: "/rules", label: "Rules", icon: "R", admin: true },
   { to: "/integrations", label: "Integrations", icon: "I", admin: true },
   { to: "/profiles", label: "Profiles", icon: "P", admin: true },
@@ -39,8 +40,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         return [a, ...prev];
       });
     });
-    const onIdentity = (e: Event) =>
-      setMe((e as CustomEvent<Identity>).detail);
+    const onIdentity = (e: Event) => setMe((e as CustomEvent<Identity>).detail);
     window.addEventListener("rasadbin:identity", onIdentity);
     if (ws.isReady) ws.send("alerts.get");
     return () => {
@@ -81,7 +81,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <div className="side-brand">
           <span className="side-brand-mark">R</span>
           <div>
-            <div className="side-brand-name">{me?.instance_name ?? "Rasadbin"}</div>
+            <div className="side-brand-name">
+              {me?.instance_name ?? "Rasadbin"}
+            </div>
             <div className="side-brand-sub">Security Intelligence</div>
           </div>
         </div>

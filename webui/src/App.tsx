@@ -9,6 +9,7 @@ import Discover from "./pages/Discover";
 import Alerts from "./pages/Alerts";
 import Rules from "./pages/Rules";
 import Profiles from "./pages/Profiles";
+import Assets from "./pages/Assets";
 
 export default function App() {
   return (
@@ -80,6 +81,16 @@ export default function App() {
           </RequireAuth>
         }
       />
+
+          <Route
+        path="/assets"
+        element={
+          <RequireAuth>
+            <Assets />
+          </RequireAuth>
+        }
+      />
+
 
       <Route
         path="/profiles"

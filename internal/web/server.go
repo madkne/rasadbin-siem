@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"rasadbin/internal/asset"
 	"rasadbin/internal/collector/journal"
 	"rasadbin/internal/collector/network"
 	"rasadbin/internal/collector/servicelog"
@@ -49,6 +50,7 @@ type Server struct {
 	serviceLogPaths  []string
 	profiles         *profile.Manager
 	captureIfaces    []string
+	assets           *asset.Service
 }
 
 // New builds the web UI server.
@@ -134,6 +136,9 @@ func New(cfg Config) (*Server, error) {
 	srv.integrations.notify = func(typ string, data any) {
 		srv.hub.Broadcast(typ, data)
 	}
+	srv.assets = asset.NewService(asset.Options{}, func(batch []asset.Asset) {
+		srv.hub.broadcastAuthenticated("assets.changed", batch)
+	})
 
 	profiles, err := newProfileManager(cfg.DataDir, engine, integrations, srv.collectorManager)
 	if err != nil {
@@ -153,16 +158,23 @@ func (s *Server) SetStore(ctx context.Context, q EventQuerier, app EventStore) {
 		if alerts, ok := app.(AlertStore); ok {
 			s.alertStore = alerts
 		}
+		if st, ok := app.(asset.Store); ok {
+			if err := s.assets.Attach(ctx, st); err != nil {
+				slog.Error("load assets failed", "error", err)
+			}
+		}
 	}
 }
 
 // DrainStore waits up to timeout for queued events to be persisted.
 func (s *Server) DrainStore(timeout time.Duration) {
 	s.hub.drainStore(timeout)
+	_ = s.assets.Flush(context.Background())
 }
 
 // Run drives periodic dashboard pushes until ctx is cancelled.
 func (s *Server) Run(ctx context.Context) {
+	go s.assets.Run(ctx)
 	s.hub.Run(ctx, func() time.Duration {
 		return time.Duration(s.settings.Get().RefreshSeconds) * time.Second
 	}, s.auth)
@@ -172,6 +184,7 @@ func (s *Server) Run(ctx context.Context) {
 func (s *Server) Publish(e Event) {
 	if processed, ok := s.integrations.ProcessEvent(e); ok {
 		s.hub.Publish(processed)
+		s.assets.ObserveEvent(processed.Source, processed.Message, processed.Time)
 		if s.detection != nil {
 			for _, alert := range s.detection.Process(detection.Event{
 				Time: processed.Time, Source: processed.Source,
