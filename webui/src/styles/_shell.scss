@@ -85,8 +85,19 @@
   color: var(--accent);
   flex: 0 0 auto;
 }
-.side-nav-badge {
+.side-nav-kbd {
   margin-left: auto;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: #ffffff08;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+  letter-spacing: 0.02em;
+}
+.side-nav-badge {
+  margin-left: 0.3rem;
   min-width: 1.25rem;
   height: 1.25rem;
   padding: 0 0.3rem;

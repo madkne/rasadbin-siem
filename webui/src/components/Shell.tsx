@@ -62,6 +62,32 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     setNavOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.altKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      const key = e.key.toUpperCase();
+      const item = NAV.find(
+        (n) => n.icon === key && (!n.admin || me?.role === "admin"),
+      );
+      if (!item) return;
+      e.preventDefault();
+      navigate(item.to);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate, me]);
+
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     const q = search.trim();
@@ -97,16 +123,21 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               n.to === "/integrations"
                 ? pathname.startsWith("/integrations")
                 : pathname === n.to;
-            return (
+             return (
               <Link
                 key={n.to}
                 to={n.to}
                 className={`side-nav-item ${active ? "active" : ""}`}
+                title={`Ctrl+${n.icon}`}
+                aria-keyshortcuts={`Control+${n.icon}`}
               >
                 <span className="side-nav-icon" aria-hidden>
                   {n.icon}
                 </span>
                 <span>{n.label}</span>
+                <span className="side-nav-kbd" aria-hidden>
+                  Ctrl+{n.icon}
+                </span>
                 {n.to === "/alerts" && alertCount > 0 && (
                   <Badge variant="destructive" className="side-nav-badge">
                     {alertCount > 99 ? "99+" : alertCount}
