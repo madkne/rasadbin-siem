@@ -1,0 +1,46 @@
+/* Dashboard severity breakdown */
+.severity-breakdown {
+  padding: 1.1rem 1.25rem;
+}
+.severity-bars {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+.severity-bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 40px;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+}
+.severity-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #ffffff0a;
+  overflow: hidden;
+}
+.severity-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--muted);
+  transition: width 0.3s ease;
+}
+.severity-bar-fill.sev-critical,
+.severity-bar-fill.sev-high {
+  background: var(--bad);
+}
+.severity-bar-fill.sev-medium {
+  background: var(--warning);
+}
+.severity-bar-fill.sev-low {
+  background: var(--blue);
+}
+.severity-bar-fill.sev-info {
+  background: var(--muted);
+}
+.severity-bar-count {
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,5 +1,7 @@
 # Rasadbin SIEM Platform
 
+[![Security: SkillsLLM](https://skillsllm.com/security-check/badge.svg?owner=madkne&repo=rasadbin-siem)](https://skillsllm.com/security-check/YR8h3bTUy8Yf)
+
 **Rasadbin** is a Linux-first Security Information and Event Management (SIEM) platform written in Go. It collects, normalizes, analyzes, and correlates security events from network traffic, system logs, and service logs through a unified, self-hosted web interface.
 
 The architecture is a modular monolith: collectors, detection, storage, and the web control plane are cleanly separated so each can evolve independently.

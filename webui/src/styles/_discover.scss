@@ -1,0 +1,192 @@
+.discover-page {
+  width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 2rem clamp(1rem, 3vw, 2.5rem) 4rem;
+  display: grid;
+  gap: 1rem;
+}
+.discover-querybar {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.discover-search-input {
+  flex: 1 1 320px;
+}
+.discover-querybar select,
+.discover-querybar input[type="datetime-local"] {
+  width: auto;
+}
+.discover-sources {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.filter-label-text {
+  color: var(--muted);
+}
+.chip {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-weight: 550;
+  font-size: 0.76rem;
+}
+.chip-on {
+  background: #4c9aff1a;
+  border-color: #4c9aff55;
+  color: var(--accent);
+}
+.sort-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  color: var(--muted);
+}
+.sort-toggle input {
+  width: auto;
+}
+.discover-histogram {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 1rem;
+}
+.discover-histogram .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 90px;
+}
+.bar-wrap {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.bar {
+  width: 100%;
+  min-height: 2px;
+  background: var(--accent);
+  opacity: 0.65;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.2s ease;
+}
+.bar-wrap:hover .bar {
+  opacity: 1;
+}
+.histogram-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.discover-results {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.discover-row {
+  cursor: pointer;
+}
+.discover-row:hover {
+  background: #16202d;
+}
+.discover-row.expanded {
+  background: #16202d;
+}
+.discover-doc td {
+  background: #0b121c;
+}
+.discover-doc pre {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  color: #c9d6e5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.refresh-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.refresh-label select {
+  width: auto;
+}
+/* Discover SIEM layout */
+.discover-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.discover-fields {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0.8rem;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+.discover-fields h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.discover-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.9rem 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.discover-field-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.3rem 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.discover-field-value:hover {
+  background: #ffffff08;
+  color: var(--text);
+}
+.discover-field-value.on {
+  color: var(--accent);
+  background: #4c9aff1a;
+}
+.discover-field-value.static {
+  cursor: default;
+}
+.discover-field-value.static:hover {
+  background: transparent;
+  color: var(--muted);
+}
