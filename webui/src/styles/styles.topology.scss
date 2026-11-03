@@ -279,6 +279,21 @@
   fill: #ff6b75;
 }
 
+.topo-node-os-badge {
+  fill: #172638;
+  stroke: #405773;
+  stroke-width: 1.5;
+}
+
+.asset-os-svg {
+  width: 10px;
+  height: 10px;
+  max-width: none;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+}
+
 .asset-glyph {
   pointer-events: none;
 }

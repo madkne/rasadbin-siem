@@ -9,6 +9,10 @@ import {
   Gauge,
   Thermometer,
   HelpCircle,
+  Apple,
+  AppWindow,
+  Smartphone,
+  Terminal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -83,6 +87,37 @@ const ICONS: Record<AssetVisualType, LucideIcon> = {
 };
 
 const SIZE = 28;
+
+/** Maps an operating system string to a small platform icon, or null when unknown. */
+export function resolveOsIcon(os: string): LucideIcon | null {
+  const v = os.trim().toLowerCase();
+  if (!v) return null;
+  if (/\bwindows\b/.test(v)) return AppWindow;
+  if (/macos|os ?x|darwin/.test(v)) return Apple;
+  if (/\blinux\b|ubuntu|debian|centos|rhel|red ?hat|fedora|alpine|arch/.test(v)) return Terminal;
+  if (/\bandroid\b/.test(v)) return Smartphone;
+  if (/\bios\b|iphone|ipad/.test(v)) return Smartphone;
+  return null;
+}
+
+const OS_ICON_SIZE = 10;
+
+export function OsBadge({ os }: { os: string }) {
+  const Icon = resolveOsIcon(os);
+  if (!Icon) return null;
+  return (
+    <g className="asset-os">
+      <Icon
+        className="asset-os-svg"
+        x={-OS_ICON_SIZE / 2}
+        y={-OS_ICON_SIZE / 2}
+        width={OS_ICON_SIZE}
+        height={OS_ICON_SIZE}
+        strokeWidth={1.2}
+      />
+    </g>
+  );
+}
 
 /** Renders a Lucide icon centered on (0,0) so it can sit inside an SVG node. */
 export function AssetGlyph({ type }: { type: AssetVisualType }) {

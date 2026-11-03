@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as RPointerEvent } from "react";
 import { ws } from "../lib/ws";
 import type { Asset, TopologyLink } from "../lib/types";
-import { AssetGlyph, resolveAssetVisual } from "../components/AssetIcons";
+import { AssetGlyph, resolveAssetVisual, OsBadge } from "../components/AssetIcons";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -504,6 +504,12 @@ export default function Topology() {
                         cy="-19"
                         r="4"
                       />
+                      {a.operating_system && (
+                        <g transform="translate(20 20)" className="topo-node-os">
+                          <circle className="topo-node-os-badge" r="3" />
+                          <OsBadge os={a.operating_system} />
+                        </g>
+                      )}
                       {labels && (
                         <>
                           <text className="topo-node-label" y="43">
