@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"rasadbin/internal/collector/network"
 	"rasadbin/internal/config"
 	"rasadbin/internal/storage"
 	"rasadbin/internal/web"
@@ -70,6 +71,7 @@ func runCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	network.SetPayloadInspection(cfg.PayloadInspect)
 	if cfg.MaxGoroutines > 0 {
 		runtime.GOMAXPROCS(cfg.MaxGoroutines)
 	}

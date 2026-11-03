@@ -25,6 +25,13 @@ func matches(r Rule, ev Event) bool {
 		}
 	}
 	msg := strings.ToLower(ev.Message)
+	// Free text parsed from packet payloads is attacker-controlled: never let
+	// it satisfy match_any / kind-based rules.
+	if strings.HasPrefix(msg, "packet ") {
+		if i := strings.Index(msg, ` info="`); i >= 0 {
+			msg = msg[:i]
+		}
+	}
 	for _, term := range r.MatchAny {
 		if strings.Contains(msg, strings.ToLower(term)) {
 			return true

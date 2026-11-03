@@ -44,6 +44,7 @@ type Config struct {
 	SyslogPaths       []string
 	MaxGoroutines     int
 	ServiceLogPaths   []string
+	PayloadInspect    bool
 }
 
 const defaultSyslogPaths = "/var/log/auth.log,/var/log/syslog,/var/log/messages,/var/log/secure"
@@ -86,6 +87,8 @@ func Load(args []string) (Config, error) {
 
 	serviceLogPaths := fs.String("service-log-paths", envOr("SERVICE_LOG_PATHS", defaultServiceLogPaths),
 		"comma-separated service log files to tail (overrides SERVICE_LOG_PATHS)")
+	payloadInspect := fs.Bool("payload-inspect", envBool("CAPTURE_PAYLOAD_INSPECT", true),
+		"inspect packet payloads for protocol/OS metadata (payloads are never stored)")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
@@ -120,6 +123,7 @@ func Load(args []string) (Config, error) {
 		SyslogPaths:       splitList(*syslogPaths),
 		MaxGoroutines:     *maxGoroutines,
 		ServiceLogPaths:   splitList(*serviceLogPaths),
+		PayloadInspect:    *payloadInspect,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

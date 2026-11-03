@@ -15,19 +15,29 @@ type observation struct {
 	ip       string
 	mac      string
 	port     int // >0: this host accepted a TCP connection on port
-	ttl      int // IP TTL the sender advertised (passive fingerprint hint)
-	window   int // TCP receive window the sender advertised (passive fingerprint hint)
+	ttl      int
+	window   int
+	// sender-side passive fingerprint inputs
+	syn       bool // SYN or SYN-ACK
+	df        bool
+	mss       int
+	wscale    int // -1 = option absent
+	opts      string
+	transport string
+	srcPort   int
+	appProto  string
+	appRole   string
+	appInfo   string // untrusted free text; never parsed as key=value
 }
 
 var (
-	// "packet TCP 192.0.2.10:12345 -> 198.51.100.20:443 flags=0x02 (60 bytes, interface=eth0)"
-	// followed by optional parsed detail fields: ttl, tos, id, frag, win, seq, ack, urp,
-	// doff, icmp type/code, udp len/cksum, vlan.
-	packetRe = regexp.MustCompile(`^packet (\w+) ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))? -> ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))?(?: flags=0x([0-9a-fA-F]{1,2}))?(?: ttl=(\d+))?(?: tos=0x([0-9a-fA-F]{1,2}))?(?: id=(\d+))?(?: frag=0x([0-9a-fA-F]))?(?: win=(\d+))?(?: seq=([0-9a-fA-F]+))?(?: ack=([0-9a-fA-F]+))?(?: urp=(\d+))?(?: doff=(\d+))?(?: icmp type=(\d+) code=(\d+))?(?: udp len=(\d+) cksum=0x([0-9a-fA-F]{4}))?(?: vlan=(\d+))?`)
-	// "web1 sshd[812]: message (file=/var/log/auth.log)"
+	packetRe = regexp.MustCompile(`^packet (\w+) ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))? -> ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))?(?: flags=0x([0-9a-fA-F]{1,2}))?`)
+	kvRe     = regexp.MustCompile(`(?:^|\s)([a-z_]+)=([^\s"]+)`)
+
 	syslogHeadRe = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9.\-]{0,252}) [A-Za-z0-9_.\-/]+(?:\[\d+\])?: `)
 	ipv4Re       = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
 	hostRe       = regexp.MustCompile(`^[a-z0-9]([a-z0-9._-]{0,251}[a-z0-9])?$`)
+	packetMACRe  = regexp.MustCompile(`src_mac=([0-9a-fA-F:.-]{17})\s+dst_mac=([0-9a-fA-F:.-]{17})`)
 
 	cgnat = netip.MustParsePrefix("100.64.0.0/10")
 )
@@ -42,46 +52,6 @@ func extract(source, msg string, includePublic bool) []observation {
 		return extractSyslog(msg, includePublic)
 	}
 	return nil
-}
-
-func extractPacket(msg string, includePublic bool) []observation {
-	m := packetRe.FindStringSubmatch(msg)
-	if m == nil {
-		return nil
-	}
-	src, dst := observation{}, observation{}
-	if ip, ok := normalizeIP(m[2], includePublic); ok {
-		src.ip = ip
-	}
-	if ip, ok := normalizeIP(m[4], includePublic); ok {
-		dst.ip = ip
-	}
-	macs := packetMACRe.FindStringSubmatch(msg)
-	if macs != nil {
-		src.mac = normalizeMAC(macs[1])
-		dst.mac = normalizeMAC(macs[2])
-	}
-	if strings.EqualFold(m[1], "TCP") && m[6] != "" {
-		if f, err := strconv.ParseUint(m[6], 16, 8); err == nil {
-			switch f {
-			case 0x12: // SYN-ACK: the source has acknowledged the service port
-				src.port = parsePort(m[3])
-			}
-		}
-	}
-	if v, err := strconv.Atoi(m[7]); err == nil && v > 0 {
-		src.ttl = v
-	}
-	if v, err := strconv.ParseUint(m[11], 10, 16); err == nil && v > 0 {
-		src.window = int(v)
-	}
-	var out []observation
-	for _, o := range []observation{src, dst} {
-		if o.ip != "" {
-			out = append(out, o)
-		}
-	}
-	return out
 }
 
 func extractSyslog(msg string, includePublic bool) []observation {
@@ -121,7 +91,6 @@ func extractSyslog(msg string, includePublic bool) []observation {
 // Loopback, multicast, broadcast and unspecified addresses are never assets;
 // public addresses are skipped unless includePublic is set (otherwise every
 // scanner or CDN seen in a log would become an "asset").
-var packetMACRe = regexp.MustCompile(`src_mac=([0-9a-fA-F:.-]{17})\s+dst_mac=([0-9a-fA-F:.-]{17})`)
 
 func normalizeMAC(raw string) string {
 	m, err := net.ParseMAC(strings.TrimSpace(raw))
@@ -168,22 +137,121 @@ func allDigitsDots(s string) bool {
 	return true
 }
 
-// addNetworkEvidence records a passive network fingerprint hint (e.g. TTL or
-// advertised TCP window) on an asset, deduplicated by field/value/source and
-// capped at the existing evidence limit.
-func addNetworkEvidence(a *Asset, field, value string, at time.Time) {
+func addEvidence(a *Asset, field, value, source string, conf float64, at time.Time) {
 	for _, old := range a.EnrichmentEvidence {
-		if old.Field == field && old.Value == value && old.Source == SourceNetwork {
+		if old.Field == field && old.Value == value && old.Source == source {
 			return
 		}
 	}
 	if len(a.EnrichmentEvidence) < 256 {
 		a.EnrichmentEvidence = append(a.EnrichmentEvidence, EnrichmentEvidence{
-			Field:      field,
-			Value:      value,
-			Source:     SourceNetwork,
-			Confidence: 0.5,
-			ObservedAt: at,
-		})
+			Field: field, Value: value, Source: source, Confidence: conf, ObservedAt: at})
 	}
+}
+
+// addNetworkEvidence records a passive network fingerprint hint (e.g. TTL or
+// advertised TCP window) on an asset, deduplicated by field/value/source and
+// capped at the existing evidence limit.
+func addNetworkEvidence(a *Asset, field, value string, at time.Time) {
+	addEvidence(a, field, value, SourceNetwork, 0.5, at)
+}
+
+// splitInfo separates the trusted head from the untrusted info="..." tail.
+func splitInfo(msg string) (head, info string) {
+	if i := strings.Index(msg, ` info="`); i >= 0 {
+		rest := msg[i+7:]
+		if j := strings.LastIndexByte(rest, '"'); j >= 0 {
+			rest = rest[:j]
+		}
+		return msg[:i], rest
+	}
+	return msg, ""
+}
+
+func parseKV(s string) map[string]string {
+	out := map[string]string{}
+	for _, m := range kvRe.FindAllStringSubmatch(s, 64) {
+		if _, ok := out[m[1]]; !ok {
+			out[m[1]] = m[2]
+		}
+	}
+	return out
+}
+
+func atoiKV(kv map[string]string, key string) int {
+	n, err := strconv.Atoi(kv[key])
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+func cleanHostname(s string) string {
+	s = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(s), "."))
+	if s == "" || !hostRe.MatchString(s) || allDigitsDots(s) {
+		return ""
+	}
+	return s
+}
+
+func extractPacket(msg string, includePublic bool) []observation {
+	m := packetRe.FindStringSubmatch(msg)
+	if m == nil {
+		return nil
+	}
+	head, info := splitInfo(msg)
+	kv := parseKV(head)
+
+	src, dst := observation{wscale: -1}, observation{wscale: -1}
+	if ip, ok := normalizeIP(m[2], includePublic); ok {
+		src.ip = ip
+	}
+	if ip, ok := normalizeIP(m[4], includePublic); ok {
+		dst.ip = ip
+	}
+	if macs := packetMACRe.FindStringSubmatch(head); macs != nil {
+		src.mac, dst.mac = normalizeMAC(macs[1]), normalizeMAC(macs[2])
+	}
+	proto := strings.ToUpper(m[1])
+	src.transport, src.srcPort = proto, parsePort(m[3])
+	if proto == "TCP" && m[6] != "" {
+		if f, err := strconv.ParseUint(m[6], 16, 8); err == nil {
+			src.syn = f&0x02 != 0
+			if f == 0x12 { // SYN-ACK: the source accepted a connection on this port
+				src.port = parsePort(m[3])
+			}
+		}
+	}
+	src.ttl, src.window, src.mss = atoiKV(kv, "ttl"), atoiKV(kv, "win"), atoiKV(kv, "mss")
+	if n, err := strconv.Atoi(kv["ws"]); err == nil && n >= 0 && n <= 14 {
+		src.wscale = n
+	}
+	src.opts = kv["opts"]
+	if v := strings.TrimPrefix(kv["frag"], "0x"); v != "" {
+		if n, err := strconv.ParseUint(v, 16, 8); err == nil {
+			src.df = n&2 != 0
+		}
+	}
+	src.appProto, src.appRole, src.appInfo = kv["app"], kv["role"], info
+
+	if src.appProto == "DHCP" && src.appRole == "req" && src.ip != "" {
+		src.hostname = cleanHostname(infoToken(info, "host"))
+	}
+
+	var out []observation
+	for _, o := range []observation{src, dst} {
+		if o.ip != "" {
+			out = append(out, o)
+		}
+	}
+	// DHCP clients usually send from 0.0.0.0: attribute the request to the
+	// address it asks for (option 50 / ciaddr), keyed by the Ethernet MAC.
+	if src.ip == "" && src.appProto == "DHCP" && src.appRole == "req" {
+		if ip, ok := normalizeIP(infoToken(info, "ip"), includePublic); ok {
+			out = append(out, observation{ip: ip, mac: src.mac, wscale: -1, transport: "UDP",
+				appProto: "DHCP", appRole: "req", appInfo: info,
+				hostname: cleanHostname(infoToken(info, "host"))})
+		}
+	}
+	return out
 }

@@ -50,6 +50,7 @@ type Service struct {
 	onLinks      func(changed []Link, removed []string)
 	lastPrune    time.Time
 	droppedLinks uint64
+	osStates     map[string]*osState
 }
 
 // NewService creates a Service. onChange (optional) receives each flushed batch
@@ -77,6 +78,7 @@ func NewService(opts Options, onChange func([]Asset)) *Service {
 		opts: opts, onChange: onChange,
 		assets: map[string]*Asset{}, dirty: map[string]struct{}{},
 		links: map[string]*Link{}, dirtyLinks: map[string]struct{}{}, removedLinks: map[string]struct{}{},
+		osStates: map[string]*osState{},
 	}
 }
 
@@ -281,6 +283,8 @@ func (s *Service) apply(source string, o observation, at time.Time) {
 	if o.window > 0 {
 		addNetworkEvidence(a, "window", strconv.Itoa(o.window), at)
 	}
+	s.applyOSHints(a, o, at)
+	s.applyAppEvidence(a, o, at)
 	s.dirty[id] = struct{}{}
 }
 
@@ -357,8 +361,10 @@ func (s *Service) AddManual(in Asset) (Asset, error) {
 	a.DeviceRole = strings.TrimSpace(in.DeviceRole)
 	a.Manufacturer = strings.TrimSpace(in.Manufacturer)
 	a.Model = strings.TrimSpace(in.Model)
-	a.OperatingSystem = strings.TrimSpace(in.OperatingSystem)
-	a.OSVersion = strings.TrimSpace(in.OSVersion)
+	a.setOSManual(strings.TrimSpace(in.OperatingSystem), strings.TrimSpace(in.OSVersion))
+	if a.OSSource == "" {
+		delete(s.osStates, a.ID) // OS پاک شد؛ کشف دوباره از صفر شروع می‌کند
+	}
 	a.Origin, a.Name, a.Criticality, a.Tags = OriginManual, name, crit, tags
 
 	if host != "" {
@@ -673,8 +679,10 @@ func (s *Service) UpdateMetadata(id string, in Asset) (Asset, error) {
 	a.DeviceRole = strings.TrimSpace(in.DeviceRole)
 	a.Manufacturer = strings.TrimSpace(in.Manufacturer)
 	a.Model = strings.TrimSpace(in.Model)
-	a.OperatingSystem = strings.TrimSpace(in.OperatingSystem)
-	a.OSVersion = strings.TrimSpace(in.OSVersion)
+	a.setOSManual(strings.TrimSpace(in.OperatingSystem), strings.TrimSpace(in.OSVersion))
+	if a.OSSource == "" {
+		delete(s.osStates, a.ID) // OS پاک شد؛ کشف دوباره از صفر شروع می‌کند
+	}
 
 	s.dirty[id] = struct{}{}
 	s.maybeArchiveDuplicatesLocked()

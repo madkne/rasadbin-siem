@@ -4,6 +4,7 @@ package network
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 )
 
@@ -147,5 +148,30 @@ func TestDecodeEthernetWithVLAN(t *testing.T) {
 	}
 	if got.VLANID != 10 {
 		t.Fatalf("unexpected VLAN ID %d, want 10", got.VLANID)
+	}
+}
+func TestDecodeTCPOptionsAndPayload(t *testing.T) {
+	opts := []byte{2, 4, 0x05, 0xb4, 4, 2, 8, 10, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 7}
+	payload := []byte("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13\r\n")
+	frame := make([]byte, 14+20+20+len(opts)+len(payload))
+	binary.BigEndian.PutUint16(frame[12:14], 0x0800)
+	ip := frame[14:]
+	ip[0], ip[8], ip[9] = 0x45, 64, 6
+	binary.BigEndian.PutUint16(ip[2:4], uint16(20+20+len(opts)+len(payload)))
+	copy(ip[12:16], []byte{10, 0, 0, 1})
+	copy(ip[16:20], []byte{10, 0, 0, 2})
+	tcp := ip[20:]
+	binary.BigEndian.PutUint16(tcp[0:2], 22)
+	binary.BigEndian.PutUint16(tcp[2:4], 50000)
+	tcp[12], tcp[13] = 0xa0, 0x18
+	copy(tcp[20:], opts)
+	copy(tcp[20+len(opts):], payload)
+	got, ok := decodeEthernet(frame, "eth0")
+	if !ok || got.AppProto != "SSH" || got.TCPMSS != 1460 || got.TCPWScale != 7 {
+		t.Fatalf("unexpected: %+v", got)
+	}
+	s := got.String()
+	if !strings.Contains(s, "opts=mss,sackok,ts,nop,ws") || !strings.Contains(s, "app=SSH") {
+		t.Fatalf("unexpected string: %s", s)
 	}
 }

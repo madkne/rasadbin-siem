@@ -44,7 +44,9 @@ type Asset struct {
 	Model              string               `json:"model,omitempty"`
 	OperatingSystem    string               `json:"operating_system,omitempty"`
 	OSVersion          string               `json:"os_version,omitempty"`
-	EnrichmentStatus   string               `json:"enrichment_status"` // pending | enriching | partial | enriched | failed
+	OSConfidence       float64              `json:"os_confidence,omitempty"`
+	OSSource           string               `json:"os_source,omitempty"` // passive | manual
+	EnrichmentStatus   string               `json:"enrichment_status"`   // pending | enriching | partial | enriched | failed
 	EnrichmentAttempts int                  `json:"enrichment_attempts"`
 	EnrichmentError    string               `json:"enrichment_error,omitempty"`
 	LastEnrichedAt     time.Time            `json:"last_enriched_at,omitempty"`

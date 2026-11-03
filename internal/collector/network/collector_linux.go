@@ -49,6 +49,17 @@ type PacketEvent struct {
 	ICMPCode uint8
 	// 802.1Q VLAN tag of the outermost tag (0 when untagged).
 	VLANID uint16
+	// TCP options (p0f-style) – meaningful mostly on SYN / SYN-ACK.
+	TCPOptions string // e.g. "mss,sackok,ts,nop,ws"
+	TCPMSS     uint16
+	TCPWScale  int // -1 when absent
+	// Transport payload analysis. Payload bytes are never retained.
+	PayloadLen int
+	Entropy    float64 // Shannon entropy of the first bytes (>=64B payloads)
+	AppProto   string
+	AppRole    string // req | resp | ""
+	AppDetail  string // sanitized, untrusted free text
+	AppFunc    string // trusted identifier (e.g. write_single_register)
 }
 
 func (e PacketEvent) String() string {
@@ -104,6 +115,34 @@ func (e PacketEvent) String() string {
 		}
 		if e.UDPChecksum != 0 {
 			detail += fmt.Sprintf(" cksum=0x%04x", e.UDPChecksum)
+		}
+	}
+
+	if e.Protocol == "TCP" && e.TCPOptions != "" {
+		detail += " opts=" + e.TCPOptions
+		if e.TCPMSS != 0 {
+			detail += fmt.Sprintf(" mss=%d", e.TCPMSS)
+		}
+		if e.TCPWScale >= 0 {
+			detail += fmt.Sprintf(" ws=%d", e.TCPWScale)
+		}
+	}
+	if e.PayloadLen > 0 {
+		detail += fmt.Sprintf(" plen=%d", e.PayloadLen)
+		if e.PayloadLen >= 64 {
+			detail += fmt.Sprintf(" ent=%.2f", e.Entropy)
+		}
+	}
+	if e.AppProto != "" {
+		detail += " app=" + e.AppProto
+		if e.AppRole != "" {
+			detail += " role=" + e.AppRole
+		}
+		if e.AppFunc != "" {
+			detail += " fn=" + e.AppFunc
+		}
+		if e.AppDetail != "" {
+			detail += ` info="` + e.AppDetail + `"` // always last
 		}
 	}
 	if e.SourcePort != 0 || e.DestinationPort != 0 {
@@ -231,8 +270,14 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 		IPIdent:   binary.BigEndian.Uint16(ip[4:6]),
 		IPFlags:   ip[6] >> 5,
 		IPFragOff: binary.BigEndian.Uint16(ip[6:8]) & 0x1fff,
-		VLANID:    vlanID}
+		VLANID:    vlanID,
+		TCPWScale: -1,
+	}
+	if ev.IPFragOff != 0 { // non-first fragment: there is no L4 header in this packet
+		return ev, true
+	}
 	l4 := ip[ihl:totalLen]
+	var payload []byte
 	switch ip[9] {
 	case syscall.IPPROTO_TCP:
 		ev.Protocol = "TCP"
@@ -247,6 +292,13 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 		ev.TCPOff = l4[12] >> 4
 		ev.TCPWindow = binary.BigEndian.Uint16(l4[14:16])
 		ev.TCPUrgent = binary.BigEndian.Uint16(l4[18:20])
+		if hdr := int(ev.TCPOff) * 4; hdr >= 20 && hdr <= len(l4) {
+			if hdr > 20 {
+				o := parseTCPOptions(l4[20:hdr])
+				ev.TCPOptions, ev.TCPMSS, ev.TCPWScale = o.Layout, o.MSS, o.WScale
+			}
+			payload = l4[hdr:]
+		}
 	case syscall.IPPROTO_UDP:
 		ev.Protocol = "UDP"
 		if len(l4) < 8 {
@@ -256,11 +308,31 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 		ev.DestinationPort = binary.BigEndian.Uint16(l4[2:4])
 		ev.UDPLen = binary.BigEndian.Uint16(l4[4:6])
 		ev.UDPChecksum = binary.BigEndian.Uint16(l4[6:8])
+		end := int(ev.UDPLen)
+		if end < 8 || end > len(l4) {
+			end = len(l4)
+		}
+		payload = l4[8:end]
 	case syscall.IPPROTO_ICMP:
 		ev.Protocol = "ICMP"
 		if len(l4) >= 2 {
 			ev.ICMPType = l4[0]
 			ev.ICMPCode = l4[1]
+		}
+		if ev.ICMPType == 8 && len(l4) > 8 && inspectEnabled.Load() {
+			if a := inspectICMPEcho(l4[8:]); a.Proto != "" {
+				ev.AppProto, ev.AppRole, ev.AppDetail = a.Proto, a.Role, a.Detail
+			}
+		}
+	}
+	if len(payload) > 0 {
+		ev.PayloadLen = len(payload)
+		if inspectEnabled.Load() {
+			if len(payload) >= 64 {
+				ev.Entropy = shannon(payload)
+			}
+			a := inspectPayload(ev.Protocol, ev.SourcePort, ev.DestinationPort, payload)
+			ev.AppProto, ev.AppRole, ev.AppDetail, ev.AppFunc = a.Proto, a.Role, a.Detail, a.Func
 		}
 	}
 	return ev, true

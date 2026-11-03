@@ -14,24 +14,26 @@ import (
 // AssetRecord is the durable form of an asset. List-valued fields are stored
 // as JSON text so the schema works unchanged on SQLite, PostgreSQL and MySQL.
 type AssetRecord struct {
-	ID                 string    `gorm:"primaryKey;size:300"`
-	Origin             string    `gorm:"index;not null;size:16"`
-	Name               string    `gorm:"not null;size:300"`
-	Hostname           string    `gorm:"index;size:253"`
-	IPs                string    `gorm:"column:ips;type:text"`
-	Ports              string    `gorm:"column:ports;type:text"`
-	Sources            string    `gorm:"column:sources;type:text"`
-	Tags               string    `gorm:"column:tags;type:text"`
-	Criticality        string    `gorm:"size:16"`
-	MACAddresses       string    `gorm:"column:mac_addresses;type:text"`
-	Services           string    `gorm:"column:services;type:text"`
-	Protocols          string    `gorm:"column:protocols;type:text"`
-	DeviceType         string    `gorm:"size:64"`
-	DeviceRole         string    `gorm:"size:64"`
-	Manufacturer       string    `gorm:"size:128"`
-	Model              string    `gorm:"size:128"`
-	OperatingSystem    string    `gorm:"size:128"`
-	OSVersion          string    `gorm:"size:128"`
+	ID                 string `gorm:"primaryKey;size:300"`
+	Origin             string `gorm:"index;not null;size:16"`
+	Name               string `gorm:"not null;size:300"`
+	Hostname           string `gorm:"index;size:253"`
+	IPs                string `gorm:"column:ips;type:text"`
+	Ports              string `gorm:"column:ports;type:text"`
+	Sources            string `gorm:"column:sources;type:text"`
+	Tags               string `gorm:"column:tags;type:text"`
+	Criticality        string `gorm:"size:16"`
+	MACAddresses       string `gorm:"column:mac_addresses;type:text"`
+	Services           string `gorm:"column:services;type:text"`
+	Protocols          string `gorm:"column:protocols;type:text"`
+	DeviceType         string `gorm:"size:64"`
+	DeviceRole         string `gorm:"size:64"`
+	Manufacturer       string `gorm:"size:128"`
+	Model              string `gorm:"size:128"`
+	OperatingSystem    string `gorm:"size:128"`
+	OSVersion          string `gorm:"size:128"`
+	OSConfidence       float64
+	OSSource           string    `gorm:"size:16"`
 	EnrichmentStatus   string    `gorm:"index;size:16"`
 	EnrichmentAttempts int       `gorm:"not null;default:0"`
 	EnrichmentError    string    `gorm:"type:text"`
@@ -42,8 +44,8 @@ type AssetRecord struct {
 	LastSeen           time.Time `gorm:"index;not null"`
 	Archived           bool      `gorm:"index;not null;default:false"`
 	EventCount         int64     `gorm:"not null;default:0"`
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (AssetRecord) TableName() string { return "assets" }
