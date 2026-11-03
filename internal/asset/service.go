@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -274,6 +275,12 @@ func (s *Service) apply(source string, o observation, at time.Time) {
 			a.EnrichmentStatus = "pending"
 		}
 	}
+	if o.ttl > 0 {
+		addNetworkEvidence(a, "ttl", strconv.Itoa(o.ttl), at)
+	}
+	if o.window > 0 {
+		addNetworkEvidence(a, "window", strconv.Itoa(o.window), at)
+	}
 	s.dirty[id] = struct{}{}
 }
 
@@ -287,14 +294,14 @@ func (s *Service) AddManual(in Asset) (Asset, error) {
 	}
 	var ips []string
 	for _, raw := range in.IPs {
-	a, err := netip.ParseAddr(strings.TrimSpace(raw))
-	if err != nil {
-		return Asset{}, fmt.Errorf("invalid IP address %q", raw)
-	}
-	a = a.Unmap()
-	if a.Is4() && a.As4()[3] == 255 {
-		return Asset{}, fmt.Errorf("broadcast address %q is not an asset", raw)
-	}
+		a, err := netip.ParseAddr(strings.TrimSpace(raw))
+		if err != nil {
+			return Asset{}, fmt.Errorf("invalid IP address %q", raw)
+		}
+		a = a.Unmap()
+		if a.Is4() && a.As4()[3] == 255 {
+			return Asset{}, fmt.Errorf("broadcast address %q is not an asset", raw)
+		}
 		ips = addUnique(ips, a.Unmap().String(), maxIPsPerAsset)
 	}
 	host := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(in.Hostname), "."))

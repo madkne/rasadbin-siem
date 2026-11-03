@@ -29,6 +29,26 @@ type PacketEvent struct {
 	TCPFlags        byte
 	SourceMAC       string
 	DestinationMAC  string
+	// IPv4 header fields.
+	IPTTL     uint8
+	IPTOS     uint8
+	IPFlags   byte // reserved, don't-fragment and more-fragments bits
+	IPIdent   uint16
+	IPFragOff uint16 // fragment offset in 8-byte blocks
+	// TCP header fields.
+	TCPSeq    uint32
+	TCPAck    uint32
+	TCPOff    byte // data offset in 32-bit words
+	TCPWindow uint16
+	TCPUrgent uint16
+	// UDP header fields.
+	UDPLen      uint16
+	UDPChecksum uint16
+	// ICMP header fields.
+	ICMPType uint8
+	ICMPCode uint8
+	// 802.1Q VLAN tag of the outermost tag (0 when untagged).
+	VLANID uint16
 }
 
 func (e PacketEvent) String() string {
@@ -40,12 +60,58 @@ func (e PacketEvent) String() string {
 	if e.Protocol == "TCP" && e.TCPFlags != 0 {
 		flags = fmt.Sprintf(" flags=0x%02x", e.TCPFlags)
 	}
-	if e.SourcePort != 0 || e.DestinationPort != 0 {
-		return fmt.Sprintf("packet %s %s:%d -> %s:%d%s (%d bytes, interface=%s)%s",
-			e.Protocol, e.SourceIP, e.SourcePort, e.DestinationIP, e.DestinationPort, flags, e.Length, e.Interface, macs)
+	detail := ""
+	if e.IPTTL > 0 {
+		detail = fmt.Sprintf(" ttl=%d", e.IPTTL)
 	}
-	return fmt.Sprintf("packet %s %s -> %s%s (%d bytes, interface=%s)%s",
-		e.Protocol, e.SourceIP, e.DestinationIP, flags, e.Length, e.Interface, macs)
+	if e.IPTOS != 0 {
+		detail += fmt.Sprintf(" tos=0x%02x", e.IPTOS)
+	}
+	if e.IPIdent != 0 {
+		detail += fmt.Sprintf(" id=%d", e.IPIdent)
+	}
+	if e.IPFlags != 0 {
+		detail += fmt.Sprintf(" frag=0x%x", e.IPFlags)
+	}
+	if e.VLANID != 0 {
+		detail += fmt.Sprintf(" vlan=%d", e.VLANID)
+	}
+	if e.Protocol == "TCP" {
+		if e.TCPWindow != 0 {
+			detail += fmt.Sprintf(" win=%d", e.TCPWindow)
+		}
+		if e.TCPSeq != 0 {
+			detail += fmt.Sprintf(" seq=%x", e.TCPSeq)
+		}
+		if e.TCPAck != 0 {
+			detail += fmt.Sprintf(" ack=%x", e.TCPAck)
+		}
+		if e.TCPUrgent != 0 {
+			detail += fmt.Sprintf(" urp=%d", e.TCPUrgent)
+		}
+		if e.TCPOff != 0 {
+			detail += fmt.Sprintf(" doff=%d", e.TCPOff)
+		}
+	}
+	if e.Protocol == "ICMP" {
+		if e.ICMPType != 0 || e.ICMPCode != 0 {
+			detail += fmt.Sprintf(" icmp type=%d code=%d", e.ICMPType, e.ICMPCode)
+		}
+	}
+	if e.Protocol == "UDP" {
+		if e.UDPLen != 0 {
+			detail += fmt.Sprintf(" udp len=%d", e.UDPLen)
+		}
+		if e.UDPChecksum != 0 {
+			detail += fmt.Sprintf(" cksum=0x%04x", e.UDPChecksum)
+		}
+	}
+	if e.SourcePort != 0 || e.DestinationPort != 0 {
+		return fmt.Sprintf("packet %s %s:%d -> %s:%d%s (%d bytes, interface=%s)%s%s",
+			e.Protocol, e.SourceIP, e.SourcePort, e.DestinationIP, e.DestinationPort, flags, e.Length, e.Interface, macs, detail)
+	}
+	return fmt.Sprintf("packet %s %s -> %s%s (%d bytes, interface=%s)%s%s",
+		e.Protocol, e.SourceIP, e.DestinationIP, flags, e.Length, e.Interface, macs, detail)
 }
 
 type Collector struct {
@@ -125,10 +191,14 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 	}
 	ethType := binary.BigEndian.Uint16(frame[12:14])
 	offset := 14
+	var vlanID uint16
 	// Basic 802.1Q / 802.1ad support.
 	for ethType == 0x8100 || ethType == 0x88a8 {
 		if len(frame) < offset+4 {
 			return PacketEvent{}, false
+		}
+		if vlanID == 0 {
+			vlanID = binary.BigEndian.Uint16(frame[offset:offset+2]) & 0x0fff
 		}
 		ethType = binary.BigEndian.Uint16(frame[offset+2 : offset+4])
 		offset += 4
@@ -156,7 +226,12 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 		SourceIP: net.IP(ip[12:16]).String(), DestinationIP: net.IP(ip[16:20]).String(),
 		SourceMAC:      net.HardwareAddr(frame[6:12]).String(),
 		DestinationMAC: net.HardwareAddr(frame[0:6]).String(),
-		Protocol:       proto, Length: offset + totalLen}
+		Protocol:       proto, Length: offset + totalLen,
+		IPTTL: ip[8], IPTOS: ip[1],
+		IPIdent:   binary.BigEndian.Uint16(ip[4:6]),
+		IPFlags:   ip[6] >> 5,
+		IPFragOff: binary.BigEndian.Uint16(ip[6:8]) & 0x1fff,
+		VLANID:    vlanID}
 	l4 := ip[ihl:totalLen]
 	switch ip[9] {
 	case syscall.IPPROTO_TCP:
@@ -167,6 +242,11 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 		ev.SourcePort = binary.BigEndian.Uint16(l4[0:2])
 		ev.DestinationPort = binary.BigEndian.Uint16(l4[2:4])
 		ev.TCPFlags = l4[13]
+		ev.TCPSeq = binary.BigEndian.Uint32(l4[4:8])
+		ev.TCPAck = binary.BigEndian.Uint32(l4[8:12])
+		ev.TCPOff = l4[12] >> 4
+		ev.TCPWindow = binary.BigEndian.Uint16(l4[14:16])
+		ev.TCPUrgent = binary.BigEndian.Uint16(l4[18:20])
 	case syscall.IPPROTO_UDP:
 		ev.Protocol = "UDP"
 		if len(l4) < 8 {
@@ -174,8 +254,14 @@ func decodeEthernet(frame []byte, iface string) (PacketEvent, bool) {
 		}
 		ev.SourcePort = binary.BigEndian.Uint16(l4[0:2])
 		ev.DestinationPort = binary.BigEndian.Uint16(l4[2:4])
+		ev.UDPLen = binary.BigEndian.Uint16(l4[4:6])
+		ev.UDPChecksum = binary.BigEndian.Uint16(l4[6:8])
 	case syscall.IPPROTO_ICMP:
 		ev.Protocol = "ICMP"
+		if len(l4) >= 2 {
+			ev.ICMPType = l4[0]
+			ev.ICMPCode = l4[1]
+		}
 	}
 	return ev, true
 }

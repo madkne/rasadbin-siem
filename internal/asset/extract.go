@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // observation is one thing an event told us about a host.
@@ -14,11 +15,15 @@ type observation struct {
 	ip       string
 	mac      string
 	port     int // >0: this host accepted a TCP connection on port
+	ttl      int // IP TTL the sender advertised (passive fingerprint hint)
+	window   int // TCP receive window the sender advertised (passive fingerprint hint)
 }
 
 var (
 	// "packet TCP 192.0.2.10:12345 -> 198.51.100.20:443 flags=0x02 (60 bytes, interface=eth0)"
-	packetRe = regexp.MustCompile(`^packet (\w+) ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))? -> ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))?(?: flags=0x([0-9a-fA-F]{1,2}))?`)
+	// followed by optional parsed detail fields: ttl, tos, id, frag, win, seq, ack, urp,
+	// doff, icmp type/code, udp len/cksum, vlan.
+	packetRe = regexp.MustCompile(`^packet (\w+) ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))? -> ((?:\d{1,3}\.){3}\d{1,3})(?::(\d+))?(?: flags=0x([0-9a-fA-F]{1,2}))?(?: ttl=(\d+))?(?: tos=0x([0-9a-fA-F]{1,2}))?(?: id=(\d+))?(?: frag=0x([0-9a-fA-F]))?(?: win=(\d+))?(?: seq=([0-9a-fA-F]+))?(?: ack=([0-9a-fA-F]+))?(?: urp=(\d+))?(?: doff=(\d+))?(?: icmp type=(\d+) code=(\d+))?(?: udp len=(\d+) cksum=0x([0-9a-fA-F]{4}))?(?: vlan=(\d+))?`)
 	// "web1 sshd[812]: message (file=/var/log/auth.log)"
 	syslogHeadRe = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9.\-]{0,252}) [A-Za-z0-9_.\-/]+(?:\[\d+\])?: `)
 	ipv4Re       = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
@@ -63,6 +68,12 @@ func extractPacket(msg string, includePublic bool) []observation {
 				src.port = parsePort(m[3])
 			}
 		}
+	}
+	if v, err := strconv.Atoi(m[7]); err == nil && v > 0 {
+		src.ttl = v
+	}
+	if v, err := strconv.ParseUint(m[11], 10, 16); err == nil && v > 0 {
+		src.window = int(v)
 	}
 	var out []observation
 	for _, o := range []observation{src, dst} {
@@ -155,4 +166,24 @@ func allDigitsDots(s string) bool {
 		}
 	}
 	return true
+}
+
+// addNetworkEvidence records a passive network fingerprint hint (e.g. TTL or
+// advertised TCP window) on an asset, deduplicated by field/value/source and
+// capped at the existing evidence limit.
+func addNetworkEvidence(a *Asset, field, value string, at time.Time) {
+	for _, old := range a.EnrichmentEvidence {
+		if old.Field == field && old.Value == value && old.Source == SourceNetwork {
+			return
+		}
+	}
+	if len(a.EnrichmentEvidence) < 256 {
+		a.EnrichmentEvidence = append(a.EnrichmentEvidence, EnrichmentEvidence{
+			Field:      field,
+			Value:      value,
+			Source:     SourceNetwork,
+			Confidence: 0.5,
+			ObservedAt: at,
+		})
+	}
 }
