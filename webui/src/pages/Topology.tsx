@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as RPointerEvent } from "react";
 import { ws } from "../lib/ws";
 import type { Asset, TopologyLink } from "../lib/types";
-import { AssetGlyph, resolveAssetVisual, OsBadge } from "../components/AssetIcons";
+import {
+  AssetGlyph,
+  resolveAssetVisual,
+  OsBadge,
+  resolveOsIcon,
+} from "../components/AssetIcons";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -114,6 +119,13 @@ export default function Topology() {
       ),
     [links, byId, liveOnly, now],
   );
+
+  function osLabel(a: Asset): string {
+    const os = (a.operating_system ?? "").trim();
+    if (!os) return "";
+    const v = (a.os_version ?? "").trim();
+    return v && !os.toLowerCase().includes(v.toLowerCase()) ? `${os} ${v}` : os;
+  }
 
   const visibleAssets = useMemo(() => {
     if (!hideIsolated) return assets;
@@ -505,12 +517,39 @@ export default function Topology() {
                         r="4"
                       />
                       {a.operating_system && (
-                        <g transform="translate(20 20)" className="topo-node-os">
+                        <g
+                          transform=""
+                          className="topo-node-os"
+                        >
                           <circle className="topo-node-os-badge" r="3" />
-                          <OsBadge os={a.operating_system} />
+                          {a.operating_system &&
+                            resolveOsIcon(a.operating_system) && (
+                              <g
+                                transform="translate(20 20)"
+                                className="topo-node-os"
+                              >
+                                <circle className="topo-node-os-badge" r="7" />
+                                <OsBadge os={a.operating_system} />
+                              </g>
+                            )}
+                          {labels && (
+                            <>
+                              <text className="topo-node-label" y="43">
+                                {a.name ?? a.hostname}
+                              </text>
+                              <text className="topo-node-ip" y="56">
+                                {a.ips?.[0] ?? ""}
+                              </text>
+                              {osLabel(a) && (
+                                <text className="topo-node-os-name" y="68">
+                                  {osLabel(a)}
+                                </text>
+                              )}
+                            </>
+                          )}
                         </g>
                       )}
-                      {labels && (
+                      {!a.operating_system && labels && (
                         <>
                           <text className="topo-node-label" y="43">
                             {a.name ?? a.hostname}
@@ -520,7 +559,11 @@ export default function Topology() {
                           </text>
                         </>
                       )}
-                      <title>{`${a.ips?.length ? a.ips.join(", ") : ""}`}</title>
+                      <title>
+                        {[a.ips?.join(", "), osLabel(a)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </title>
                     </g>
                   );
                 })}
@@ -572,26 +615,27 @@ export default function Topology() {
                 </p>
               </div>
               <dl>
-                {selectedAsset.hostname && (
+                {osLabel(selectedAsset) && (
                   <>
-                    <dt>Hostname</dt>
-                    <dd>{selectedAsset.hostname}</dd>
+                    <dt>OS</dt>
+                    <dd>{osLabel(selectedAsset)}</dd>
                   </>
                 )}
-                <dt>IP addresses</dt>
-                <dd>{(selectedAsset.ips ?? []).join(", ") || "—"}</dd>
-                <dt>Services</dt>
-                <dd>{(selectedAsset.ports ?? []).join(", ") || "—"}</dd>
-                <dt>Seen via</dt>
-                <dd>{(selectedAsset.sources ?? []).join(", ")}</dd>
-                {(selectedAsset.tags ?? []).length > 0 && (
+                {selectedAsset.device_type && (
                   <>
-                    <dt>Tags</dt>
-                    <dd>{selectedAsset.tags.join(", ")}</dd>
+                    <dt>Device type</dt>
+                    <dd>{selectedAsset.device_type}</dd>
                   </>
                 )}
-                <dt>Last seen</dt>
-                <dd>{new Date(selectedAsset.last_seen).toLocaleString()}</dd>
+                {selectedAsset.manufacturer && (
+                  <>
+                    <dt>Vendor</dt>
+                    <dd>
+                      {selectedAsset.manufacturer}
+                      {selectedAsset.model ? ` ${selectedAsset.model}` : ""}
+                    </dd>
+                  </>
+                )}
               </dl>
               <h3>Connections ({connections.length})</h3>
               {connections.length === 0 && (

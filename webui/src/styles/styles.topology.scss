@@ -336,3 +336,14 @@
 .topo-node.selected {
   filter: drop-shadow(0 0 7px #f5c76b66);
 }
+
+.topo-node-os-name {
+  fill: #6f86a3;
+  font-size: 9px;
+  font-style: italic;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: #0b121c;
+  stroke-width: 2px;
+}

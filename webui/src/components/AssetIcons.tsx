@@ -30,7 +30,10 @@ export type AssetVisualType =
 // Order matters: first match wins.
 const RULES: [AssetVisualType, RegExp][] = [
   ["firewall", /firewall|fortigate|palo.?alto|checkpoint/],
-  ["plc", /\bplc\b|\brtu\b|scada|programmable.?logic|modbus|dnp3|s7comm|iec.?104|logix/],
+  [
+    "plc",
+    /\bplc\b|\brtu\b|scada|programmable.?logic|modbus|dnp3|s7comm|iec.?104|logix/,
+  ],
   ["hmi", /\bhmi\b|human.?machine/],
   ["switch", /switch|network.?device/],
   ["router", /router|gateway/],
@@ -39,6 +42,30 @@ const RULES: [AssetVisualType, RegExp][] = [
   ["workstation", /workstation|desktop|laptop|windows.?client/],
 ];
 
+// Order matters: first match wins. Network OSes and Android must be checked
+// before the generic Apple / Linux rules, or they get misclassified.
+const OS_RULES: [RegExp, LucideIcon][] = [
+  // Network device operating systems
+  [
+    /\bcisco\b|\bios[- ]?x[er]\b|\bnx-?os\b|\bjunos\b|\brouteros\b|\bfortios\b|\bpan-?os\b|\barubaos\b|\bsonic\b|\bopenwrt\b|\bdd-?wrt\b|\bedgeos\b|\bcomware\b|\bsr ?os\b|\beos\b/,
+    Network,
+  ],
+  // Android before Linux ("Android (Linux 5.x)")
+  [/\bandroid\b/, Smartphone],
+  [/\bwindows\b|\bwin[ -]?(xp|7|8|10|11|ce|nt|server)\b/, AppWindow],
+  [/\bmac ?os\b|\bos ?x\b|\bdarwin\b|\bmacintosh\b/, Apple],
+  [/\bipados\b|\bios\b|\biphone\b|\bipad\b/, Smartphone],
+  // Embedded / industrial RTOS
+  [
+    /\bvxworks\b|\bqnx\b|\bfreertos\b|\brtos\b|\bthreadx\b|\bzephyr\b|\bwind river\b|\bembedded\b|\bfirmware\b|\bsimatic\b|\bcodesys\b/,
+    Cpu,
+  ],
+  // Linux / Unix / BSD
+  [
+    /\blinux\b|\bgnu\b|\bubuntu\b|\bdebian\b|\bcentos\b|\brhel\b|\bred ?hat\b|\bfedora\b|\balpine\b|\barch\b|\bmanjaro\b|\bopensuse\b|\bsuse\b|\brocky\b|\balma ?linux\b|\boracle linux\b|\bamazon linux\b|\bkali\b|\braspbian\b|\braspberry pi os\b|\bmint\b|\b(free|open|net|dragonfly)bsd\b|\bbsd\b|\bpfsense\b|\bopnsense\b|\bsolaris\b|\billumos\b|\baix\b|\bhp-?ux\b|\bunix\b/,
+    Terminal,
+  ],
+];
 function classify(text: string): AssetVisualType | null {
   const value = text.trim().toLowerCase();
   if (!value) return null;
@@ -48,7 +75,8 @@ function classify(text: string): AssetVisualType | null {
 
 export function resolveAssetVisual(a: Asset): AssetVisualType {
   // 1. Analyst-set classification wins: device type, then role.
-  const explicit = classify(a.device_type ?? "") ?? classify(a.device_role ?? "");
+  const explicit =
+    classify(a.device_type ?? "") ?? classify(a.device_role ?? "");
   if (explicit) return explicit;
 
   // 2. Discovered metadata.
@@ -67,9 +95,11 @@ export function resolveAssetVisual(a: Asset): AssetVisualType {
 
   // 3. Well-known ports.
   const ports = a.ports ?? [];
-  if (ports.some((p) => [502, 102, 20000, 2404, 44818, 4840].includes(p))) return "plc";
+  if (ports.some((p) => [502, 102, 20000, 2404, 44818, 4840].includes(p)))
+    return "plc";
   if (ports.some((p) => [3389, 445, 139].includes(p))) return "workstation";
-  if (ports.some((p) => [3306, 5432, 6379, 9200, 22, 80, 443].includes(p))) return "server";
+  if (ports.some((p) => [3306, 5432, 6379, 9200, 22, 80, 443].includes(p)))
+    return "server";
 
   return "unknown";
 }
@@ -89,14 +119,10 @@ const ICONS: Record<AssetVisualType, LucideIcon> = {
 const SIZE = 28;
 
 /** Maps an operating system string to a small platform icon, or null when unknown. */
-export function resolveOsIcon(os: string): LucideIcon | null {
-  const v = os.trim().toLowerCase();
+export function resolveOsIcon(os?: string | null): LucideIcon | null {
+  const v = (os ?? "").trim().toLowerCase();
   if (!v) return null;
-  if (/\bwindows\b/.test(v)) return AppWindow;
-  if (/macos|os ?x|darwin/.test(v)) return Apple;
-  if (/\blinux\b|ubuntu|debian|centos|rhel|red ?hat|fedora|alpine|arch/.test(v)) return Terminal;
-  if (/\bandroid\b/.test(v)) return Smartphone;
-  if (/\bios\b|iphone|ipad/.test(v)) return Smartphone;
+  for (const [re, icon] of OS_RULES) if (re.test(v)) return icon;
   return null;
 }
 
